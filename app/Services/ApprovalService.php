@@ -15,6 +15,28 @@ use InvalidArgumentException;
 
 class ApprovalService extends BaseService
 {
+    /**
+     * Helper: expected report status before a given approval level can process
+     */
+    public function getExpectedReportStatusForLevel(ApprovalLevel $attemptingLevel): ReportStatus
+    {
+        return match ($attemptingLevel) {
+            ApprovalLevel::ERO => ReportStatus::SUBMITTED,
+            ApprovalLevel::KADEPT_BISNIS => ReportStatus::REVIEWED,
+            ApprovalLevel::KADIV_ERO => ReportStatus::APPROVED,
+            default => throw new InvalidArgumentException('Level approval tidak valid.'),
+        };
+    }
+
+    /**
+     * Assert the actor and report are eligible to process the given approval level
+     */
+    public function assertCanProcess(User $actor, Report $report, ApprovalLevel $level): void
+    {
+        $this->validateActorPermission($actor, $level);
+        $this->validateSequentialFlow($report, $level);
+    }
+
     public function processApproval(Approval $approval, User $actor, ApprovalStatus $status, array $data): Approval
     {
         $this->validateActorPermission($actor, $approval->level);
@@ -27,6 +49,8 @@ class ApprovalService extends BaseService
         }
 
         return $this->tx(function () use ($approval, $report, $actor, $status, $data) {
+            // Simpan status lama sebelum diubah, untuk kebutuhan audit
+            $previousStatus = $report->status; // casted ke ReportStatus
             $approval->update([
                 'reviewed_by' => $actor->id,
                 'status' => $status,
@@ -66,7 +90,8 @@ class ApprovalService extends BaseService
                 'report_id' => $report->id,
                 'approval_id' => $approval->id,
                 'level' => $approval->level->value,
-                'before' => ['report_status' => $report->getOriginal('status')?->value],
+                // Pastikan before/after berupa angka mentah dari enum
+                'before' => ['report_status' => $previousStatus?->value],
                 'after' => ['report_status' => $nextReportStatus?->value],
                 'meta' => $data,
             ]);
@@ -118,12 +143,7 @@ class ApprovalService extends BaseService
 
     protected function validateSequentialFlow(Report $report, ApprovalLevel $attemptingLevel): void
     {
-        $expectedStatus = match ($attemptingLevel) {
-            ApprovalLevel::ERO => ReportStatus::SUBMITTED,
-            ApprovalLevel::KADEPT_BISNIS => ReportStatus::REVIEWED,
-            ApprovalLevel::KADIV_ERO => ReportStatus::APPROVED,
-            default => throw new InvalidArgumentException('Level approval tidak valid.'),
-        };
+        $expectedStatus = $this->getExpectedReportStatusForLevel($attemptingLevel);
 
         if ($report->status !== $expectedStatus) {
             throw new InvalidArgumentException("Status laporan saat ini ({$report->status->name}) tidak valid untuk persetujuan level {$attemptingLevel->name}. Seharusnya {$expectedStatus->name}.");

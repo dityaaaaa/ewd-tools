@@ -133,10 +133,28 @@ const getApprovalStatusLabel = (status: string | number): string => {
     }
 };
 
-const getReportStatusLabel = (status: string): string => {
+const getReportStatusLabel = (status: string | number): string => {
+    if (typeof status === 'number') {
+        switch (status) {
+            case 1:
+                return 'Disubmit';
+            case 2:
+                return 'Direview';
+            case 3:
+                return 'Disetujui';
+            case 4:
+                return 'Ditolak';
+            case 5:
+                return 'Selesai';
+            default:
+                return status.toString();
+        }
+    }
     switch (status) {
         case 'SUBMITTED':
             return 'Disubmit';
+        case 'REVIEWED':
+            return 'Direview';
         case 'APPROVED':
             return 'Disetujui';
         case 'REJECTED':
@@ -144,7 +162,7 @@ const getReportStatusLabel = (status: string): string => {
         case 'DONE':
             return 'Selesai';
         default:
-            return status;
+            return status.toString();
     }
 };
 
@@ -190,11 +208,17 @@ const getReportStatusBadge = (status: number) => {
             );
         case 2:
             return (
+                <Badge variant="outline" className="border-amber-200 bg-amber-50 font-medium text-amber-700">
+                    Direview
+                </Badge>
+            );
+        case 3:
+            return (
                 <Badge variant="outline" className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700">
                     Disetujui
                 </Badge>
             );
-        case 3:
+        case 4:
             return (
                 <Badge variant="outline" className="border-red-200 bg-red-50 font-medium text-red-700">
                     Ditolak
@@ -339,8 +363,8 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
     }, []);
 
     const canUserApprove = useCallback(
-        (approval: Approval) => {
-            // Handle both number and string status
+        (report: Report, approval: Approval) => {
+            // Normalisasi status approval
             const status =
                 typeof approval.status === 'number'
                     ? approval.status === 0
@@ -352,7 +376,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                             : approval.status.toString()
                     : approval.status;
 
-            // Convert approval level to number for comparison
+            // Normalisasi level approval ke number
             const approvalLevel =
                 typeof approval.level === 'number'
                     ? approval.level
@@ -366,81 +390,41 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                             ? 4
                             : parseInt(approval.level.toString());
 
-            return status === 'pending' && approvalLevel === userApprovalLevel;
+            if (!(status === 'pending' && approvalLevel === userApprovalLevel)) return false;
+
+            // Gate tambahan: hanya izinkan jika status laporan sudah mencapai tahapan untuk level ini
+            const expectedReportStatusByLevel: Record<number, number> = {
+                2: 1, // ERO hanya saat SUBMITTED
+                3: 2, // KADEPT_BISNIS hanya saat REVIEWED
+                4: 3, // KADIV_ERO hanya saat APPROVED
+            };
+            const expectedStatus = expectedReportStatusByLevel[approvalLevel];
+            return report.status === expectedStatus;
         },
         [userApprovalLevel],
     );
 
     const pendingCount = useMemo(() => {
-        // Hanya hitung laporan yang menunggu persetujuan di level user,
-        // dan (jika user punya divisi) hanya yang berasal dari divisi user tersebut.
+        // Hanya hitung laporan yang pending di level user dan sudah mencapai tahapan status yang benar
+        const expectedReportStatusByLevel: Record<number, number> = {
+            2: 1, // ERO -> SUBMITTED
+            3: 2, // KADEPT_BISNIS -> REVIEWED
+            4: 3, // KADIV_ERO -> APPROVED
+        };
         return reportList.reduce((count, report) => {
             const sameDivision = user?.division?.id ? report?.borrower?.division?.id === user.division.id : true;
             if (!sameDivision) return count;
+            const expectedStatus = userApprovalLevel ? expectedReportStatusByLevel[userApprovalLevel] : undefined;
+            if (expectedStatus === undefined || report.status !== expectedStatus) return count;
 
-            const pendingForUserLevel = (report.approvals || []).filter((approval) => {
-                // Gunakan logika yang sama dengan canUserApprove untuk status & level
-                const status =
-                    typeof approval.status === 'number'
-                        ? approval.status === 0
-                            ? 'pending'
-                            : approval.status === 1
-                              ? 'approved'
-                              : approval.status === 2
-                                ? 'rejected'
-                                : approval.status.toString()
-                        : approval.status;
-
-                const approvalLevel =
-                    typeof approval.level === 'number'
-                        ? approval.level
-                        : approval.level === 'RM'
-                          ? 1
-                          : approval.level === 'ERO'
-                            ? 2
-                            : approval.level === 'KADEPT_BISNIS'
-                              ? 3
-                              : approval.level === 'KADIV_ERO'
-                                ? 4
-                                : parseInt(approval.level.toString());
-
-                return status === 'pending' && approvalLevel === userApprovalLevel;
-            });
+            const pendingForUserLevel = (report.approvals || []).filter((approval) => canUserApprove(report, approval));
             return count + pendingForUserLevel.length;
         }, 0);
-    }, [reportList, userApprovalLevel, user?.division?.id]);
+    }, [reportList, userApprovalLevel, user?.division?.id, canUserApprove]);
 
     const userActionableReports = useMemo(() => {
-        return filteredReports.filter((report) => {
-            return report.approvals?.some((approval) => {
-                const status =
-                    typeof approval.status === 'number'
-                        ? approval.status === 0
-                            ? 'pending'
-                            : approval.status === 1
-                              ? 'approved'
-                              : approval.status === 2
-                                ? 'rejected'
-                                : approval.status.toString()
-                        : approval.status;
-
-                const approvalLevel =
-                    typeof approval.level === 'number'
-                        ? approval.level
-                        : approval.level === 'RM'
-                          ? 2
-                          : approval.level === 'ERO'
-                            ? 3
-                            : approval.level === 'KADEPT_BISNIS'
-                              ? 4
-                              : approval.level === 'KADIV_ERO'
-                                ? 5
-                                : parseInt(approval.level.toString());
-
-                return status === 'pending' && approvalLevel === userApprovalLevel;
-            });
-        });
-    }, [filteredReports, userApprovalLevel]);
+        return filteredReports.filter((report) => report.approvals?.some((approval) => canUserApprove(report, approval)));
+    }, [filteredReports, canUserApprove]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -546,7 +530,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                                     <TableCell>{report.period?.name || 'N/A'}</TableCell>
                                                     <TableCell>
                                                         {(() => {
-                                                            const current = report.approvals?.find((a) => canUserApprove(a));
+                                                            const current = report.approvals?.find((a) => canUserApprove(report, a));
                                                             if (current) {
                                                                 return (
                                                                     <div className="flex items-center gap-2">
@@ -593,7 +577,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                                             </Link>
                                                             {report.approvals?.map(
                                                                 (approval) =>
-                                                                    canUserApprove(approval) && (
+                                                                    canUserApprove(report, approval) && (
                                                                         <div key={approval.id} className="flex gap-2">
                                                                             <Button
                                                                                 size="sm"

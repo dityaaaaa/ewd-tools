@@ -247,9 +247,26 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
         (approval: Approval) => {
             const status = normalizeApprovalStatus(approval.status);
             const levelNum = normalizeApprovalLevelToNumber(approval.level);
-            return status === 'pending' && userApprovalLevel !== null && levelNum === userApprovalLevel;
+
+            // Harus pending dan level user sesuai
+            if (!(status === 'pending' && userApprovalLevel !== null && levelNum === userApprovalLevel)) {
+                return false;
+            }
+
+            // Gate tambahan: pastikan status laporan sudah mencapai tahapan yang benar untuk level ini
+            // Mapping ReportStatus (int) berdasarkan ApprovalLevel (int):
+            // 2 (ERO) -> 1 (SUBMITTED)
+            // 3 (KADEPT_BISNIS) -> 2 (REVIEWED)
+            // 4 (KADIV_ERO) -> 3 (APPROVED)
+            const expectedReportStatusByLevel: Record<number, number> = {
+                2: 1,
+                3: 2,
+                4: 3,
+            };
+            const expectedStatus = expectedReportStatusByLevel[levelNum];
+            return expectedStatus !== undefined && report.status === expectedStatus;
         },
-        [userApprovalLevel],
+        [userApprovalLevel, report.status],
     );
 
     const breadcrumbs: BreadcrumbItem[] = [
