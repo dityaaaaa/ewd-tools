@@ -26,10 +26,16 @@ class ApprovalController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $reports = $this->reportService->getReportsForApproval($user);
+        $perPage = (int)($request->get('per_page', 15));
+        $filters = [
+            'q' => $request->get('q'),
+        ];
+
+        $reports = $this->reportService->getReportsForApproval($user, $perPage, $filters);
+
         return Inertia::render('approval/index', [
             'reports' => $reports,
-            'user' => $user->load('division')
+            'user' => $user->load('division'),
         ]);
     }
     

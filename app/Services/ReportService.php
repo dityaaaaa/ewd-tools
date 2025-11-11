@@ -84,48 +84,54 @@ class ReportService
         return $report;
     }
 
-    public function getReportsForApproval(User $user)
+    public function getReportsForApproval(User $user, int $perPage = 15, array $filters = [])
     {
-        // Check if user is admin - admin can see all reports
-        if ($user->hasRole('admin')) {
-            return $this->getAllReportsForApproval();
-        }
-
-        // Check if user is relationship manager - RM can see their own reports
-        if ($user->hasRole('relationship_manager')) {
-            return $this->getReportsCreatedByUser($user);
-        }
-
-        // Untuk role selain admin & RM, ambil seluruh laporan di divisi user
-        // (risk_analyst, kadept_bisnis, kadept_risk) untuk monitoring proses pelaporan hingga final.
-        $isDivisionWideRole = $user->hasRole('risk_analyst') || $user->hasRole('kadept_bisnis') || $user->hasRole('kadept_risk');
-        if (!$isDivisionWideRole) {
-            return collect();
-        }
-
         $query = Report::with([
-            'borrower', 
-            'borrower.division', 
-            'period', 
+            'borrower',
+            'borrower.division',
+            'period',
             'creator',
             'summary',
-            'approvals' => function($q) {
+            'approvals' => function ($q) {
                 $q->orderBy('level');
             },
-            'approvals.reviewer'
-        ]);
+            'approvals.reviewer',
+        ])->latest();
 
-        // Filter by user's division if user has a division
-        if ($user->division_id) {
-            $query->whereHas('borrower', function($q) use ($user) {
-                $q->where('division_id', $user->division_id);
+        // Admin dapat melihat semua laporan, RM hanya laporan yang dibuatnya,
+        // role divisi (risk_analyst, kadept_bisnis, kadept_risk) dibatasi pada divisinya.
+        if ($user->hasRole('relationship_manager')) {
+            $query->where('created_by', $user->id);
+        } elseif (!$user->hasRole('admin')) {
+            if ($user->division_id) {
+                $query->whereHas('borrower', function ($bq) use ($user) {
+                    $bq->where('division_id', $user->division_id);
+                });
+            }
+        }
+
+        // Pencarian bebas (q): nama debitur, divisi, periode, pembuat
+        $q = trim((string)($filters['q'] ?? ''));
+        if ($q !== '') {
+            $query->where(function ($sub) use ($q) {
+                $sub
+                    ->whereHas('borrower', function ($bq) use ($q) {
+                        $bq->where('name', 'like', "%{$q}%")
+                           ->orWhereHas('division', function ($dq) use ($q) {
+                               $dq->where('name', 'like', "%{$q}%")
+                                  ->orWhere('code', 'like', "%{$q}%");
+                           });
+                    })
+                    ->orWhereHas('period', function ($pq) use ($q) {
+                        $pq->where('name', 'like', "%{$q}%");
+                    })
+                    ->orWhereHas('creator', function ($cq) use ($q) {
+                        $cq->where('name', 'like', "%{$q}%");
+                    });
             });
         }
 
-        // Untuk monitoring, jangan batasi berdasarkan status approval workflow.
-        // Tampilkan seluruh laporan pada divisi user (jika ada), beserta approvals terurut.
-
-        return $query->latest()->get();
+        return $query->paginate($perPage)->withQueryString();
     }
 
     /**

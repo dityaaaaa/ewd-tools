@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import DataPagination from '@/components/data-pagination';
 import { dashboard } from '@/routes';
 import approvals from '@/routes/approvals';
 import { BreadcrumbItem, User } from '@/types';
@@ -66,7 +67,7 @@ type Report = {
 };
 
 type PageProps = {
-    reports: Report[];
+    reports: Report[] | { data: Report[]; links: any; current_page: number; last_page: number; next_page_url?: string | null; prev_page_url?: string | null; from?: number; to?: number; total?: number; per_page?: number; path?: string };
     user: User & {
         division?: {
             id: number;
@@ -228,16 +229,18 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
     }, []);
     const [q, setQ] = useState<string>(initialQ);
 
+    const reportList: Report[] = useMemo(() => (Array.isArray(reports) ? reports : (reports?.data ?? [])), [reports]);
+
     const filteredReports = useMemo(() => {
-        if (!q) return reports || [];
+        if (!q) return reportList || [];
         const qLower = q.toLowerCase();
-        return (reports || []).filter((r) => {
+        return (reportList || []).filter((r) => {
             const fields = [r?.borrower?.name, r?.borrower?.division?.name, r?.borrower?.division?.code, r?.period?.name, r?.creator?.name]
                 .filter(Boolean)
                 .map((v) => String(v).toLowerCase());
             return fields.some((f) => f.includes(qLower));
         });
-    }, [reports, q]);
+    }, [reportList, q]);
 
     const applySearch = () => {
         const options = q ? { q } : undefined;
@@ -371,7 +374,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
     const pendingCount = useMemo(() => {
         // Hanya hitung laporan yang menunggu persetujuan di level user,
         // dan (jika user punya divisi) hanya yang berasal dari divisi user tersebut.
-        return reports.reduce((count, report) => {
+        return reportList.reduce((count, report) => {
             const sameDivision = user?.division?.id ? report?.borrower?.division?.id === user.division.id : true;
             if (!sameDivision) return count;
 
@@ -405,7 +408,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
             });
             return count + pendingForUserLevel.length;
         }, 0);
-    }, [reports, userApprovalLevel, user?.division?.id]);
+    }, [reportList, userApprovalLevel, user?.division?.id]);
 
     const userActionableReports = useMemo(() => {
         return filteredReports.filter((report) => {
@@ -454,7 +457,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                 </div>
                                 <div className="grid gap-2 sm:gap-3 sm:text-right">
                                     <div className="rounded-lg border p-3 sm:p-4">
-                                        <div className="text-xl font-bold sm:text-2xl">{reports.length}</div>
+                                        <div className="text-xl font-bold sm:text-2xl">{Array.isArray(reports) ? reports.length : (reports?.data?.length ?? 0)}</div>
                                         <div className="text-xs text-muted-foreground sm:text-sm">Total Laporan</div>
                                     </div>
                                     <div className="rounded-lg border p-3 sm:p-4">
@@ -623,6 +626,12 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                     </Table>
                                 )}
                             </CardContent>
+                            {/* Pagination controls */}
+                            {!Array.isArray(reports) && (reports as any)?.links ? (
+                                <div className="px-4 py-3">
+                                    <DataPagination paginationData={reports as any} />
+                                </div>
+                            ) : null}
                         </Card>
                     </div>
                 </div>
