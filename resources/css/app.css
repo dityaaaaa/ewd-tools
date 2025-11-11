@@ -59,6 +59,21 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Print-specific adjustments */
+@media print {
+  /* Hide interactive controls or elements marked as non-print */
+  .no-print { display: none !important; }
+
+  /* Improve printable margins */
+  @page { margin: 16mm; }
+
+  /* Ensure text color is consistent on print */
+  body { color: #000 !important; }
+
+  /* Remove drop shadows that don’t render nicely on paper */
+  .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
+}
+
 :root {
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);

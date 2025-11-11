@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ActionItemType;
 use App\Enums\Classification;
 use App\Models\MonitoringNote;
+use App\Models\Period;
 use App\Models\Report;
 use App\Models\Watchlist;
 use Illuminate\Support\Facades\Auth;
@@ -35,6 +36,27 @@ class MonitoringNoteService extends BaseService
         $watchlist = $this->getOrCreateWatchlistByReportId($reportId);
         $monitoringNote = $this->getOrCreateMonitoringNoteByWatchlist($watchlist->id, $report->borrower_id);
 
+        // Ambil laporan periode sebelumnya untuk borrower yang sama (jika tersedia)
+        $previousReport = null;
+        try {
+            $currentPeriod = $report->period; // sudah diload oleh ReportService
+            if ($currentPeriod) {
+                $prevPeriod = Period::where('start_date', '<', $currentPeriod->start_date)
+                    ->orderBy('start_date', 'desc')
+                    ->first();
+                if ($prevPeriod) {
+                    $prevModel = Report::where('borrower_id', $report->borrower_id)
+                        ->where('period_id', $prevPeriod->id)
+                        ->first();
+                    if ($prevModel) {
+                        $previousReport = $this->reportService->getReportById($prevModel->id);
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            Log::warning('Failed retrieving previous report for comparison: ' . $e->getMessage());
+        }
+
         $actionItems = [
             'previous_period'  => $monitoringNote->actionItems
                 ->where('item_type', ActionItemType::PREVIOUS_PERIOD->value)
@@ -57,6 +79,7 @@ class MonitoringNoteService extends BaseService
         return [
             'watchlist' => $watchlist,
             'report_data' => $report,
+            'previous_report_data' => $previousReport,
             'monitoring_note' => $monitoringNote,
             'action_items' => $actionItems,
         ];

@@ -83,6 +83,55 @@ class FormService extends BaseService
     }
 
     /**
+     * Resubmit an existing report: update borrower details, facilities, replace answers,
+     * recalculate summary, reset approvals, and set status back to SUBMITTED.
+     */
+    public function resubmit(Report $report, array $validated, User $actor): Report
+    {
+        $this->authorize($actor, 'submit report');
+
+        return $this->tx(function () use ($report, $validated, $actor) {
+            $borrowerId = $validated['informationBorrower']['borrowerId'];
+
+            $this->updateBorrowerDetails($borrowerId, $validated['informationBorrower']);
+            $this->syncBorrowerFacilities($borrowerId, $validated['facilitiesBorrower']);
+
+            // Update report meta and reset status
+            $report->template_id = $validated['reportMeta']['template_id'];
+            $report->period_id = $validated['reportMeta']['period_id'];
+            $report->status = ReportStatus::SUBMITTED;
+            $report->submitted_at = now();
+            $report->rejection_reason = null;
+            $report->save();
+
+            // Replace answers
+            Answer::where('report_id', $report->id)->delete();
+            $this->storeReportAnswers($report, $validated['aspectsBorrower']);
+
+            // Recalculate summary based on new data
+            $this->reportCalculationService->calculateAndStoreSummary($report, $actor);
+
+            // Reset approvals (delete + recreate pending approvals)
+            $this->approvalService->createPendingApprovals($report);
+
+            $this->audit($actor, [
+                'action' => 'form_resubmitted',
+                'auditable_id' => $report->id,
+                'auditable_type' => Report::class,
+                'report_id' => $report->id,
+                'meta' => [
+                    'borrower_id' => $borrowerId,
+                    'borrower_name' => $validated['informationBorrower']['borrowerName'] ?? null,
+                    'template_id' => $validated['reportMeta']['template_id'],
+                    'period_id' => $validated['reportMeta']['period_id'],
+                ]
+            ]);
+
+            return $report->fresh(['summary', 'aspects']);
+        });
+    }
+
+    /**
      * Buat atau perbarui detail data borrower.
      */
     private function updateBorrowerDetails(int $borrowerId, array $info): void
@@ -132,6 +181,17 @@ class FormService extends BaseService
      */
     private function createReport(int $borrowerId, array $meta, User $actor): Report
     {
+        // Guard: pastikan tidak ada laporan untuk pasangan (borrower, period) yang sama
+        $exists = Report::where('borrower_id', $borrowerId)
+            ->where('period_id', $meta['period_id'])
+            ->exists();
+
+        if ($exists) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'reportMeta.period_id' => 'Debitur sudah memiliki laporan pada periode ini.',
+            ]);
+        }
+
         return Report::create([
             'borrower_id' => $borrowerId,
             'template_id' => $meta['template_id'],

@@ -2,32 +2,21 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\FacilityType;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class StoreFormRequest extends FormRequest
+class UpdateFormRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        $user = $this->user();
-        return $user ? $user->can('submit report') : false;
+        return auth()->check();
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
             'informationBorrower.borrowerId' => 'required|integer|exists:borrowers,id',
             'informationBorrower.borrowerGroup' => 'nullable|string',
-            'informationBorrower.purpose' => ['required', Rule::in(FacilityType::values())],
+            'informationBorrower.purpose' => ['required', \Illuminate\Validation\Rule::in(\App\Enums\FacilityType::values())],
             'informationBorrower.economicSector' => 'required|string',
             'informationBorrower.businessField' => 'required|string',
             'informationBorrower.borrowerBusiness' => 'required|string',
@@ -49,22 +38,7 @@ class StoreFormRequest extends FormRequest
             'aspectsBorrower.*.selectedOptionId' => 'required|exists:question_options,id',
 
             'reportMeta.template_id' => 'required|exists:templates,id',
-            'reportMeta.period_id' => [
-                'required',
-                'exists:periods,id',
-                // Unik: satu debitur hanya bisa dilaporkan sekali per periode
-                \Illuminate\Validation\Rule::unique('reports', 'period_id')
-                    ->where(function ($query) {
-                        $query->where('borrower_id', $this->input('informationBorrower.borrowerId'));
-                    }),
-            ],
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'reportMeta.period_id.unique' => 'Debitur sudah memiliki laporan pada periode yang dipilih.',
+            'reportMeta.period_id' => ['required', 'exists:periods,id'],
         ];
     }
 }

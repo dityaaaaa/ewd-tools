@@ -80,8 +80,9 @@ const getItemTypeLabel = (type: ActionItemType) => {
     }
 };
 
-export default function WatchlistNote({ report_data, monitoring_note, action_items }: WatchlistNotePageProps) {
+export default function WatchlistNote({ report_data, previous_report_data, monitoring_note, action_items }: WatchlistNotePageProps) {
     const [report] = useState(report_data);
+    const [prevReport] = useState(previous_report_data ?? null);
     const [monitoringNote, setMonitoringNote] = useState(monitoring_note);
     const [actionItems, setActionItems] = useState(action_items);
     const [editingItemId, setEditingItemId] = useState<number | null>(null);
@@ -199,6 +200,47 @@ export default function WatchlistNote({ report_data, monitoring_note, action_ite
             },
         );
     };
+
+    // Ringkasan perbandingan periode (atas halaman)
+    const ComparisonSummary = useMemo(() => {
+        return (
+            <Card className="mb-6">
+                <CardHeader>
+                    <CardTitle>Perbandingan Periode</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {prevReport ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 border rounded">
+                                <div className="text-sm text-muted-foreground">Periode Sebelumnya</div>
+                                <div className="font-medium">{prevReport?.period?.name ?? 'Tidak diketahui'}</div>
+                                <div className="mt-2 flex items-center gap-2">
+                                    <span className="text-sm">Klasifikasi:</span>
+                                    <Badge className={classificationBadgeClass(prevReport?.summary?.final_classification)}>
+                                        {classificationLabel(prevReport?.summary?.final_classification)}
+                                    </Badge>
+                                </div>
+                                <div className="mt-1 text-sm">Kolektibilitas Indikatif: {prevReport?.summary?.indicative_collectibility ?? '-'}</div>
+                            </div>
+                            <div className="p-4 border rounded">
+                                <div className="text-sm text-muted-foreground">Periode Saat Ini</div>
+                                <div className="font-medium">{report?.period?.name ?? 'Tidak diketahui'}</div>
+                                <div className="mt-2 flex items-center gap-2">
+                                    <span className="text-sm">Klasifikasi:</span>
+                                    <Badge className={classificationBadgeClass(report?.summary?.final_classification)}>
+                                        {classificationLabel(report?.summary?.final_classification)}
+                                    </Badge>
+                                </div>
+                                <div className="mt-1 text-sm">Kolektibilitas Indikatif: {report?.summary?.indicative_collectibility ?? '-'}</div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-sm text-muted-foreground">Tidak ada laporan periode sebelumnya untuk debitur ini.</div>
+                    )}
+                </CardContent>
+            </Card>
+        );
+    }, [prevReport, report]);
 
     const handleUpdateActionItem = (item: ActionItemT) => {
         const newErrors: typeof errors.actionItem = {};
@@ -655,3 +697,14 @@ function ActionItemForm({
         </form>
     );
 }
+    const classificationLabel = (value?: number) => {
+        if (value === 0) return 'Watchlist';
+        if (value === 1) return 'Safe';
+        return 'N/A';
+    };
+
+    const classificationBadgeClass = (value?: number) => {
+        if (value === 0) return 'bg-red-100 text-red-800';
+        if (value === 1) return 'bg-green-100 text-green-800';
+        return 'bg-gray-100 text-gray-800';
+    };

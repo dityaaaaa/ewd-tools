@@ -49,6 +49,7 @@ class DashboardService extends BaseService
                 'reports_by_status' => $this->getReportsByStatus(),
                 'reports_by_division' => $this->getReportsByDivision(),
                 'monthly_report_trend' => $this->getMonthlyReportTrend(),
+                'approval_pipeline' => $this->getApprovalPipelineSummary(),
             ],
             'recent_activities' => $this->getRecentActivities(),
             'system_health' => $this->getSystemHealth(),
@@ -115,6 +116,7 @@ class DashboardService extends BaseService
             'charts' => [
                 'approval_trend' => $this->getApprovalTrend($user, ApprovalLevel::ERO),
                 'risk_classification_distribution' => $this->getRiskClassificationDistribution($user->division_id),
+                'approval_pipeline' => $this->getApprovalPipelineSummary($user->division_id),
             ],
             'pending_approvals_list' => $this->getPendingApprovalsList($user, ApprovalLevel::ERO),
             'watchlist_alerts' => $this->getWatchlistAlerts($user->division_id),
@@ -152,6 +154,7 @@ class DashboardService extends BaseService
             'charts' => [
                 'division_performance' => $this->getDivisionPerformance($user->division_id),
                 'approval_efficiency' => $this->getApprovalEfficiency($user->division_id),
+                'approval_pipeline' => $this->getApprovalPipelineSummary($user->division_id),
             ],
             'pending_approvals_list' => $this->getPendingApprovalsList($user, ApprovalLevel::KADEPT_BISNIS),
             'team_overview' => $this->getTeamOverview($user->division_id),
@@ -189,6 +192,7 @@ class DashboardService extends BaseService
             'charts' => [
                 'risk_trend_analysis' => $this->getRiskTrendAnalysis($user->division_id),
                 'portfolio_health' => $this->getPortfolioHealth($user->division_id),
+                'approval_pipeline' => $this->getApprovalPipelineSummary($user->division_id),
             ],
             'pending_approvals_list' => $this->getPendingApprovalsList($user, ApprovalLevel::KADIV_ERO),
             'risk_alerts' => $this->getRiskAlerts($user->division_id),
@@ -570,5 +574,31 @@ class DashboardService extends BaseService
     {
         // Implement compliance issue detection
         return 1;
+    }
+
+    /**
+     * Ringkasan pipeline persetujuan: total pending/approved/rejected.
+     * Opsional filter berdasarkan division_id borrower.
+     */
+    protected function getApprovalPipelineSummary(?int $divisionId = null): array
+    {
+        $query = Approval::query();
+        if ($divisionId) {
+            $query->whereHas('report.borrower', function ($q) use ($divisionId) {
+                $q->where('division_id', $divisionId);
+            });
+        }
+
+        $raw = $query
+            ->select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        return [
+            'pending' => (int)($raw[ApprovalStatus::PENDING->value] ?? 0),
+            'approved' => (int)($raw[ApprovalStatus::APPROVED->value] ?? 0),
+            'rejected' => (int)($raw[ApprovalStatus::REJECTED->value] ?? 0),
+        ];
     }
 }

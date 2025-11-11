@@ -1,16 +1,17 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
+import approvals from '@/routes/approvals';
 import { BreadcrumbItem, User } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircleIcon, CheckIcon, ClockIcon, EyeIcon, UserIcon, XIcon, SearchIcon } from 'lucide-react';
+import { AlertCircleIcon, CheckIcon, ClockIcon, EyeIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -82,12 +83,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     {
         title: 'Persetujuan Laporan',
-        href: '/approvals',
+        href: approvals.index().url,
     },
 ];
 
 const getApprovalLevelLabel = (level: string | number): string => {
-    // Convert number to string if needed
     const levelStr =
         typeof level === 'number'
             ? level === 1
@@ -199,7 +199,7 @@ const getReportStatusBadge = (status: number) => {
                     Ditolak
                 </Badge>
             );
-        case 4:
+        case 5:
             return (
                 <Badge variant="outline" className="border-slate-200 bg-slate-50 font-medium text-slate-700">
                     Selesai
@@ -211,7 +211,6 @@ const getReportStatusBadge = (status: number) => {
 };
 
 export default function ApprovalIndex({ reports, user }: PageProps) {
-    console.log(reports);
     const [approvalNotes, setApprovalNotes] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
     const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
@@ -219,7 +218,6 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
     const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
     const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 
-    // URL-synced search state and client-side filtering
     const initialQ = useMemo(() => {
         try {
             const params = new URLSearchParams(window.location.search);
@@ -234,13 +232,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
         if (!q) return reports || [];
         const qLower = q.toLowerCase();
         return (reports || []).filter((r) => {
-            const fields = [
-                r?.borrower?.name,
-                r?.borrower?.division?.name,
-                r?.borrower?.division?.code,
-                r?.period?.name,
-                r?.creator?.name,
-            ]
+            const fields = [r?.borrower?.name, r?.borrower?.division?.name, r?.borrower?.division?.code, r?.period?.name, r?.creator?.name]
                 .filter(Boolean)
                 .map((v) => String(v).toLowerCase());
             return fields.some((f) => f.includes(qLower));
@@ -377,9 +369,14 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
     );
 
     const pendingCount = useMemo(() => {
+        // Hanya hitung laporan yang menunggu persetujuan di level user,
+        // dan (jika user punya divisi) hanya yang berasal dari divisi user tersebut.
         return reports.reduce((count, report) => {
-            const pendingApprovals = report.approvals.filter((approval) => {
-                // Handle both number and string status
+            const sameDivision = user?.division?.id ? report?.borrower?.division?.id === user.division.id : true;
+            if (!sameDivision) return count;
+
+            const pendingForUserLevel = (report.approvals || []).filter((approval) => {
+                // Gunakan logika yang sama dengan canUserApprove untuk status & level
                 const status =
                     typeof approval.status === 'number'
                         ? approval.status === 0
@@ -390,17 +387,29 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                 ? 'rejected'
                                 : approval.status.toString()
                         : approval.status;
-                return status === 'pending';
-            });
-            return count + pendingApprovals.length;
-        }, 0);
-    }, [reports]);
 
-    // Get reports that user can actually approve (for their level)
+                const approvalLevel =
+                    typeof approval.level === 'number'
+                        ? approval.level
+                        : approval.level === 'RM'
+                          ? 1
+                          : approval.level === 'ERO'
+                            ? 2
+                            : approval.level === 'KADEPT_BISNIS'
+                              ? 3
+                              : approval.level === 'KADIV_ERO'
+                                ? 4
+                                : parseInt(approval.level.toString());
+
+                return status === 'pending' && approvalLevel === userApprovalLevel;
+            });
+            return count + pendingForUserLevel.length;
+        }, 0);
+    }, [reports, userApprovalLevel, user?.division?.id]);
+
     const userActionableReports = useMemo(() => {
         return filteredReports.filter((report) => {
             return report.approvals?.some((approval) => {
-                // Handle both number and string status
                 const status =
                     typeof approval.status === 'number'
                         ? approval.status === 0
@@ -412,7 +421,6 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                 : approval.status.toString()
                         : approval.status;
 
-                // Convert approval level to number for comparison
                 const approvalLevel =
                     typeof approval.level === 'number'
                         ? approval.level
@@ -437,34 +445,25 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
             <div className="py-6 md:py-12">
                 <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:max-w-7xl lg:px-8">
                     <div className="space-y-6">
-                        {/* Header Section (standardized) */}
-                        <Card className="border bg-background">
-                            <CardHeader className="border-b bg-muted/30">
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <CardTitle className="text-xl font-bold text-foreground">Persetujuan Laporan</CardTitle>
-                                        <div className="text-sm text-muted-foreground">Menunggu: {pendingCount}</div>
+                        {/* Header Section (mirrors Borrower page) */}
+                        <div className="rounded-xl border bg-card p-6 sm:p-8">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Manajemen Persetujuan</h1>
+                                    <p className="text-sm text-muted-foreground sm:text-base">Kelola persetujuan laporan sesuai workflow</p>
+                                </div>
+                                <div className="grid gap-2 sm:gap-3 sm:text-right">
+                                    <div className="rounded-lg border p-3 sm:p-4">
+                                        <div className="text-xl font-bold sm:text-2xl">{reports.length}</div>
+                                        <div className="text-xs text-muted-foreground sm:text-sm">Total Laporan</div>
                                     </div>
-                                    <div className="flex w-full items-center gap-2 sm:w-auto">
-                                        <Input
-                                            placeholder="Cari debitur/divisi/periode/pembuat..."
-                                            value={q}
-                                            onChange={(e) => setQ(e.target.value)}
-                                            className="min-w-0 flex-1 sm:w-96"
-                                        />
-                                        <Button variant="secondary" onClick={applySearch} aria-label="Cari">
-                                            <SearchIcon className="h-4 w-4" />
-                                        </Button>
-                                        {q && (
-                                            <Button variant="ghost" onClick={resetSearch} aria-label="Reset pencarian">
-                                                <XIcon className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                    <div className="rounded-lg border p-3 sm:p-4">
+                                        <div className="text-xl font-bold sm:text-2xl">{pendingCount}</div>
+                                        <div className="text-xs text-muted-foreground sm:text-sm">Menunggu Persetujuan</div>
                                     </div>
                                 </div>
-                                <div className="text-sm text-muted-foreground">Kelola persetujuan laporan sesuai dengan workflow yang ditetapkan</div>
-                            </CardHeader>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Info cards (standardized tone) */}
                         {pendingCount > 0 && (
@@ -473,7 +472,8 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                     <div className="flex items-center gap-3">
                                         <AlertCircleIcon className="h-5 w-5 text-amber-600" />
                                         <span className="text-sm text-muted-foreground">
-                                            Anda memiliki <span className="font-semibold text-foreground">{pendingCount}</span> laporan yang menunggu persetujuan Anda
+                                            Anda memiliki <span className="font-semibold text-foreground">{pendingCount}</span> laporan yang menunggu
+                                            persetujuan Anda
                                         </span>
                                     </div>
                                 </CardContent>
@@ -486,7 +486,8 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                     <div className="flex items-center gap-3">
                                         <UserIcon className="h-5 w-5 text-blue-600" />
                                         <span className="text-sm text-muted-foreground">
-                                            Level persetujuan Anda: <span className="font-semibold text-foreground">{getApprovalLevelLabel(userApprovalLevel)}</span>
+                                            Level persetujuan Anda:{' '}
+                                            <span className="font-semibold text-foreground">{getApprovalLevelLabel(userApprovalLevel)}</span>
                                         </span>
                                     </div>
                                 </CardContent>
@@ -494,16 +495,24 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                         )}
 
                         {/* Reports Table */}
-                        <Card className="border bg-background">
-                            <CardHeader className="border-b bg-muted/30">
-                                <CardTitle className="text-foreground">
-                                    Laporan Menunggu Persetujuan ({filteredReports.length})
-                                    {userApprovalLevel && (
-                                        <span className="ml-2 text-sm font-normal text-muted-foreground">
-                                            • {userActionableReports.length} dapat Anda setujui
-                                        </span>
+                        <Card>
+                            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex w-full items-center gap-2">
+                                    <Input
+                                        placeholder="Cari debitur/divisi/periode/pembuat..."
+                                        value={q}
+                                        onChange={(e) => setQ(e.target.value)}
+                                        className="min-w-0 flex-1"
+                                    />
+                                    <Button variant="secondary" onClick={applySearch} aria-label="Cari">
+                                        <SearchIcon className="h-4 w-4" />
+                                    </Button>
+                                    {q && (
+                                        <Button variant="ghost" onClick={resetSearch} aria-label="Reset filter">
+                                            <XIcon className="h-4 w-4" />
+                                        </Button>
                                     )}
-                                </CardTitle>
+                                </div>
                             </CardHeader>
                             <CardContent className="overflow-x-auto p-0">
                                 {filteredReports.length === 0 ? (
@@ -515,18 +524,15 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                         <p className="text-muted-foreground">Tidak ada laporan yang menunggu persetujuan saat ini</p>
                                     </div>
                                 ) : (
-                                    <Table>
+                                    <Table className="min-w-[800px]">
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Debitur</TableHead>
                                                 <TableHead>Divisi</TableHead>
                                                 <TableHead>Periode</TableHead>
-                                                <TableHead>Pembuat</TableHead>
-                                                <TableHead>Status Laporan</TableHead>
-                                                <TableHead>Level Persetujuan</TableHead>
                                                 <TableHead>Status Persetujuan</TableHead>
-                                                <TableHead>Catatan Persetujuan</TableHead>
-                                                <TableHead>Aksi</TableHead>
+                                                <TableHead>Catatan</TableHead>
+                                                <TableHead className="text-right">Aksi</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -535,31 +541,27 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                                     <TableCell className="font-medium">{report.borrower?.name || 'N/A'}</TableCell>
                                                     <TableCell>{report.borrower?.division?.name || 'N/A'}</TableCell>
                                                     <TableCell>{report.period?.name || 'N/A'}</TableCell>
-                                                    <TableCell>{report.creator?.name || 'N/A'}</TableCell>
-                                                    <TableCell>{getReportStatusBadge(report.status)}</TableCell>
                                                     <TableCell>
-                                                        <div className="text-sm">
-                                                            {(() => {
-                                                                const current = report.approvals?.find((a) => canUserApprove(a));
-                                                                return current ? (
-                                                                    <span className="font-bold text-blue-600">
-                                                                        {getApprovalLevelLabel(current.level)}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span>{getApprovalLevelLabel(report.approvals?.[0]?.level || '')}</span>
+                                                        {(() => {
+                                                            const current = report.approvals?.find((a) => canUserApprove(a));
+                                                            if (current) {
+                                                                return (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Badge variant="outline">{getApprovalLevelLabel(current.level)}</Badge>
+                                                                        {getApprovalStatusBadge(current.status)}
+                                                                    </div>
                                                                 );
-                                                            })()}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="space-y-1">
-                                                            {(() => {
-                                                                const current = report.approvals?.find((a) => canUserApprove(a));
-                                                                return current ? (
-                                                                    <div className="mb-1">{getApprovalStatusBadge(current.status)}</div>
-                                                                ) : null;
-                                                            })()}
-                                                        </div>
+                                                            }
+                                                            const latest = (report.approvals || []).slice().reverse()[0];
+                                                            return latest ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <Badge variant="outline">{getApprovalLevelLabel(latest.level)}</Badge>
+                                                                    {getApprovalStatusBadge(latest.status)}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-sm text-muted-foreground">-</span>
+                                                            );
+                                                        })()}
                                                     </TableCell>
                                                     <TableCell>
                                                         {(() => {
@@ -569,10 +571,7 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                                                 .find((a) => typeof a.notes === 'string' && a.notes.trim().length > 0);
                                                             const text = latestWithNotes?.notes || '';
                                                             return text ? (
-                                                                <div
-                                                                    className="max-w-[320px] truncate text-sm text-muted-foreground"
-                                                                    title={text}
-                                                                >
+                                                                <div className="max-w-[320px] truncate text-sm text-muted-foreground" title={text}>
                                                                     {text}
                                                                 </div>
                                                             ) : (
@@ -580,32 +579,35 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                                             );
                                                         })()}
                                                     </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            <Link href={`/reports/${report.id}`}>
-                                                                <Button variant="outline" size="sm">
-                                                                    <EyeIcon className="mr-1 h-4 w-4" />
-                                                                    Lihat
-                                                                </Button>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex flex-wrap justify-end gap-2">
+                                                            <Link
+                                                                href={`/reports/${report.id}`}
+                                                                className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                                title="Lihat Laporan"
+                                                            >
+                                                                <EyeIcon className="h-5 w-5" />
                                                             </Link>
                                                             {report.approvals?.map(
                                                                 (approval) =>
                                                                     canUserApprove(approval) && (
-                                                                        <div key={approval.id} className="flex gap-1">
+                                                                        <div key={approval.id} className="flex gap-2">
                                                                             <Button
                                                                                 size="sm"
+                                                                                variant="outline"
                                                                                 onClick={() => openApproveDialog(approval)}
                                                                                 disabled={isProcessing}
-                                                                                className="bg-emerald-600 hover:bg-emerald-700"
+                                                                                aria-label="Setujui"
                                                                             >
                                                                                 <CheckIcon className="mr-1 h-4 w-4" />
                                                                                 Setujui
                                                                             </Button>
                                                                             <Button
                                                                                 size="sm"
-                                                                                variant="destructive"
+                                                                                variant="outline"
                                                                                 onClick={() => openRejectDialog(approval)}
                                                                                 disabled={isProcessing}
+                                                                                aria-label="Tolak"
                                                                             >
                                                                                 <XIcon className="mr-1 h-4 w-4" />
                                                                                 Tolak

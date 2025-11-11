@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
@@ -8,7 +8,7 @@ import { dashboard } from '@/routes';
 import periods from '@/routes/periods';
 import { BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ClockIcon, EditIcon, EyeIcon, PlayIcon, PlusCircleIcon, StopCircle, Trash2Icon, SearchIcon, XIcon } from 'lucide-react';
+import { ClockIcon, EditIcon, EyeIcon, PlayIcon, SearchIcon, StopCircle, Trash2Icon, XIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -99,7 +99,8 @@ export default function PeriodIndex() {
     };
 
     const remainingTime = useMemo(() => {
-        if (!latestPeriod || !latestPeriod.end_date) return null;
+        if (!latestPeriod) return { status: 'no_period', message: 'Tidak ada periode' };
+        if (!latestPeriod.end_date) return { status: 'no_end_date', message: 'Periode tidak memiliki tanggal selesai' };
 
         const end = new Date(latestPeriod.end_date);
         const now = currentTime;
@@ -162,155 +163,172 @@ export default function PeriodIndex() {
             <Head title="Daftar Periode" />
             <div className="py-6 md:py-12">
                 <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:max-w-7xl lg:px-8">
-                    {/* Header Section */}
-                    <div className='rounded-xl border bg-card p-6 sm:p-8'>
-                        <div className='flex items-center justify-between'>
-                            <div>
-                                <h1 className='mb-2 text-2xl font-bold sm:text-3xl'>Manajemen Periode</h1>
-                            </div>
-                        </div>
-                    </div>
-
-                    {latestPeriod && (
-                        <Card className="mb-8 border bg-background">
-                            <CardHeader className="border-b bg-muted/30">
-                                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                    <div className="flex items-center">
-                                        <div className="mr-6 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                                            <ClockIcon className="h-6 w-6 text-muted-foreground" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-bold text-foreground">{latestPeriod.name}</h3>
-                                            <p className="text-sm text-muted-foreground">
-                                                {formatDate(latestPeriod.start_date)} - {formatDate(latestPeriod.end_date)}
-                                            </p>
-                                            <Badge className={`mt-2 ${getStatusBadgeClass(Number(latestPeriod.status))}`}> 
-                                                {status_options.find((s) => s.value === Number(latestPeriod.status))?.label ?? '-'}
-                                            </Badge>
-                                        </div>
-                                    </div>
-
-                                    {remainingTime && (
-                                        <div className="flex flex-col gap-4">
-                                            {remainingTime.status === 'active' ? (
-                                                <div className="rounded-md border p-4">
-                                                    <div className="flex justify-center gap-6">
-                                                        {['Hari', 'Jam', 'Menit', 'Detik'].map((unit, i) => {
-                                                            const val = [
-                                                                remainingTime.days,
-                                                                remainingTime.hours,
-                                                                remainingTime.minutes,
-                                                                remainingTime.seconds,
-                                                            ][i];
-                                                            return (
-                                                                <div className="text-center" key={unit}>
-                                                                    <div className="text-2xl font-semibold text-foreground">{val}</div>
-                                                                    <div className="text-xs text-muted-foreground">{unit}</div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="rounded-md border p-4">
-                                                    <p className="text-center text-muted-foreground font-medium">{remainingTime.message}</p>
-                                                </div>
-                                            )}
-
-                                            <div className="flex justify-end gap-2">
-                                                {Number(latestPeriod.status) === 1 && (
-                                                    <Button variant="outline" onClick={() => startPeriod(latestPeriod.id)} disabled={isStatusUpdateLoading}>
-                                                        <PlayIcon className="mr-2 h-4 w-4" />
-                                                        Mulai
-                                                    </Button>
-                                                )}
-                                                {Number(latestPeriod.status) === 2 && (
-                                                    <Button variant="outline" onClick={() => endPeriod(latestPeriod.id)} disabled={isStatusUpdateLoading}>
-                                                        <StopCircle className="mr-2 h-4 w-4" />
-                                                        Akhiri
-                                                    </Button>
-                                                )}
-                                                {[3, 4].includes(Number(latestPeriod.status)) && (
-                                                    <Button variant="outline" disabled>
-                                                        Periode Selesai
-                                                    </Button>
-                                                )}
+                    <div className="space-y-6">
+                        {latestPeriod && (
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                        <div className="flex items-center">
+                                            <div className="mr-6 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                                                <ClockIcon className="h-6 w-6 text-muted-foreground" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold text-foreground">{latestPeriod.name}</h3>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {formatDate(latestPeriod.start_date)} - {formatDate(latestPeriod.end_date)}
+                                                </p>
+                                                <Badge className={`mt-2 ${getStatusBadgeClass(Number(latestPeriod.status))} border-0 shadow-sm`}>
+                                                    {status_options.find((s) => s.value === Number(latestPeriod.status))?.label ?? '-'}
+                                                </Badge>
                                             </div>
                                         </div>
-                                    )}
+
+                                        {remainingTime && (
+                                            <div className="flex flex-col gap-4">
+                                                {remainingTime.status === 'active' ? (
+                                                    <div className="flex flex-col items-end gap-2 md:items-start">
+                                                        <span className="text-xs tracking-wide text-muted-foreground uppercase">Sisa waktu</span>
+                                                        <div
+                                                            className={`flex items-end gap-3 rounded-md border px-3 py-2 ${
+                                                                remainingTime.days! <= 0
+                                                                    ? 'border-red-300 bg-red-50'
+                                                                    : remainingTime.days <= 3
+                                                                      ? 'border-amber-300 bg-amber-50'
+                                                                      : 'border bg-muted/20'
+                                                            }`}
+                                                        >
+                                                            {['Hari', 'Jam', 'Menit', 'Detik'].map((unit, i) => {
+                                                                const val = [
+                                                                    remainingTime.days,
+                                                                    remainingTime.hours,
+                                                                    remainingTime.minutes,
+                                                                    remainingTime.seconds,
+                                                                ][i];
+                                                                return (
+                                                                    <div key={unit} className="flex flex-col items-center">
+                                                                        <div
+                                                                            className={`font-mono text-2xl font-semibold md:text-3xl ${
+                                                                                remainingTime.days <= 0
+                                                                                    ? 'text-red-600'
+                                                                                    : remainingTime.days <= 3
+                                                                                      ? 'text-amber-600'
+                                                                                      : 'text-foreground'
+                                                                            }`}
+                                                                        >
+                                                                            {val}
+                                                                        </div>
+                                                                        <div className="text-[10px] text-muted-foreground uppercase">{unit}</div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            Tutup pada {formatDate(latestPeriod.end_date)}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant="secondary" className="w-fit px-2 py-1">
+                                                            {remainingTime.message}
+                                                        </Badge>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Tutup pada {formatDate(latestPeriod.end_date)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex justify-end gap-2">
+                                                    {Number(latestPeriod.status) === 1 && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => startPeriod(latestPeriod.id)}
+                                                            disabled={isStatusUpdateLoading}
+                                                        >
+                                                            <PlayIcon className="mr-2 h-4 w-4" />
+                                                            Mulai
+                                                        </Button>
+                                                    )}
+                                                    {Number(latestPeriod.status) === 2 && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => endPeriod(latestPeriod.id)}
+                                                            disabled={isStatusUpdateLoading}
+                                                        >
+                                                            <StopCircle className="mr-2 h-4 w-4" />
+                                                            Akhiri
+                                                        </Button>
+                                                    )}
+                                                    {[3, 4].includes(Number(latestPeriod.status)) && (
+                                                        <Button variant="outline" size="sm" disabled>
+                                                            Periode Selesai
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardHeader>
+                            </Card>
+                        )}
+
+                        <Card>
+                            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+                                    <div className="flex w-full items-center gap-2">
+                                        <Input
+                                            placeholder="Cari nama/tanggal periode..."
+                                            value={q}
+                                            onChange={(e) => setQ(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') applySearch();
+                                            }}
+                                            className="min-w-0 flex-1 sm:w-80"
+                                        />
+                                        <Button variant="secondary" onClick={applySearch} aria-label="Cari">
+                                            <SearchIcon className="h-4 w-4" />
+                                        </Button>
+                                        {q && (
+                                            <Button variant="ghost" onClick={resetSearch} aria-label="Reset pencarian">
+                                                <XIcon className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             </CardHeader>
-                        </Card>
-                    )}
-
-                    <Card className="border bg-background">
-                        <CardHeader className="border-b bg-muted/30">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <CardTitle className="text-xl font-bold flex items-center gap-3 text-foreground">
-                                    <ClockIcon className="h-6 w-6 text-muted-foreground" />
-                                    Daftar Periode ({filteredPeriods.length})
-                                </CardTitle>
-                                <div className="flex w-full items-center gap-2 sm:w-auto">
-                                    <Input
-                                        placeholder="Cari nama/tanggal periode..."
-                                        value={q}
-                                        onChange={(e) => setQ(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') applySearch();
-                                        }}
-                                        className="min-w-0 flex-1 sm:w-80"
-                                    />
-                                    <Button variant="secondary" onClick={applySearch} aria-label="Cari">
-                                        <SearchIcon className="h-4 w-4" />
-                                    </Button>
-                                    {q && (
-                                        <Button variant="ghost" onClick={resetSearch} aria-label="Reset pencarian">
-                                            <XIcon className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                </div>
-                                <Link href={periods.create().url}>
-                                    <Button variant="outline" size="sm" className="whitespace-nowrap">
-                                        <PlusCircleIcon className="mr-2 h-4 w-4" />
-                                        Buat Periode Baru
-                                    </Button>
-                                </Link>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {filteredPeriods.length === 0 ? (
-                                <div className="py-12 text-center">
-                                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                                        <ClockIcon className="h-6 w-6 text-muted-foreground" />
+                            <CardContent className="overflow-x-auto p-0">
+                                {filteredPeriods.length === 0 ? (
+                                    <div className="py-14 text-center">
+                                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                                            <ClockIcon className="h-7 w-7 text-muted-foreground" />
+                                        </div>
+                                        <p className="text-muted-foreground">Belum ada periode yang terdaftar.</p>
                                     </div>
-                                    <p className="text-muted-foreground">Belum ada periode yang terdaftar.</p>
-                                </div>
-                            ) : (
-                                <div className="overflow-x-auto">
-                                    <div className="min-w-[720px]">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Periode</TableHead>
-                                                    <TableHead>Tanggal Mulai</TableHead>
-                                                    <TableHead>Tanggal Selesai</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead className="text-right">Aksi</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {filteredPeriods.map((p, index) => (
-                                                    <TableRow key={p.id} className="transition-colors">
-                                                        <TableCell className="font-medium text-foreground">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                                                                    <ClockIcon className="h-4 w-4 text-muted-foreground" />
-                                                                </div>
-                                                                {p.name}
+                                ) : (
+                                    <Table className="min-w-[680px]">
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Periode</TableHead>
+                                                <TableHead>Rentang Tanggal</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Aksi</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredPeriods.map((p, index) => (
+                                                <TableRow key={p.id} className="transition-colors hover:bg-muted/50">
+                                                    <TableCell className="font-medium text-foreground">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                                                                <ClockIcon className="h-4 w-4 text-muted-foreground" />
                                                             </div>
-                                                        </TableCell>
-                                                    <TableCell className="text-gray-900 dark:text-gray-100">{formatDate(p.start_date)}</TableCell>
-                                                    <TableCell className="text-gray-900 dark:text-gray-100">{formatDate(p.end_date)}</TableCell>
+                                                            {p.name}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-gray-900 dark:text-gray-100">
+                                                        {formatDate(p.start_date)} — {formatDate(p.end_date)}
+                                                    </TableCell>
                                                     <TableCell>
                                                         <Badge className={`${getStatusBadgeClass(Number(p.status))} border-0 shadow-sm`}>
                                                             {status_options.find((s) => s.value === Number(p.status))?.label ?? '-'}
@@ -318,42 +336,38 @@ export default function PeriodIndex() {
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <div className="flex flex-wrap justify-end gap-2">
-                                                            <Link href={periods.edit(p.id).url} title="Edit">
-                                                                <Button variant="outline" size="sm" className="whitespace-nowrap">
-                                                                    <EditIcon className="mr-1 h-4 w-4" />
-                                                                    Edit
-                                                                </Button>
+                                                            <Link
+                                                                href={periods.edit(p.id).url}
+                                                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                                title="Edit Periode"
+                                                            >
+                                                                <EditIcon className="h-5 w-5" />
                                                             </Link>
-                                                            <Link href={periods.show(p.id).url} title="Lihat">
-                                                                <Button variant="outline" size="sm" className="whitespace-nowrap">
-                                                                    <EyeIcon className="mr-1 h-4 w-4" />
-                                                                    Lihat
-                                                                </Button>
+                                                            <Link
+                                                                href={periods.show(p.id).url}
+                                                                className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                                title="Lihat Periode"
+                                                            >
+                                                                <EyeIcon className="h-5 w-5" />
                                                             </Link>
-                                                            <Button variant="outline" size="sm" className="whitespace-nowrap" title="Hapus" onClick={() => openDeleteModal(p.id)}>
-                                                                <Trash2Icon className="mr-1 h-4 w-4" />
-                                                                Hapus
-                                                            </Button>
+                                                            <button
+                                                                onClick={() => openDeleteModal(p.id)}
+                                                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                                title="Hapus Periode"
+                                                            >
+                                                                <Trash2Icon className="h-5 w-5" />
+                                                            </button>
                                                         </div>
                                                     </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                </div>
-                            )}
-                        </CardContent>
-                        <CardFooter>
-                            <div className="flex items-center justify-between w-full">
-                                <p className="text-sm text-muted-foreground">Total: {periodList.length} periode</p>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <ClockIcon className="h-4 w-4" />
-                                    <span>Manajemen Waktu</span>
-                                </div>
-                            </div>
-                        </CardFooter>
-                    </Card>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </CardContent>
+                            <CardFooter></CardFooter>
+                        </Card>
+                    </div>
                 </div>
             </div>
             {isDeleteModalOpen && (

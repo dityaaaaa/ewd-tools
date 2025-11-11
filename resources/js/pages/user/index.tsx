@@ -45,6 +45,7 @@ export default function UserIndex() {
             return '';
         }
     }, []);
+
     const [q, setQ] = useState<string>(initialQ);
 
     const openDeleteModal = (id: number) => {
@@ -65,9 +66,7 @@ export default function UserIndex() {
                 toast.success('User berhasil dihapus');
             },
             onError: (errs) => {
-                Object.values(errs).forEach((error) => {
-                    toast.error(error as string);
-                });
+                Object.values(errs).forEach((error) => toast.error(error as string));
             },
             onFinish: () => {
                 setIsDeleting(false);
@@ -90,7 +89,7 @@ export default function UserIndex() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="List User" />
+            <Head title="Daftar User" />
             <div className="py-6 md:py-12">
                 <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:max-w-7xl lg:px-8">
                     <div className="space-y-6">
@@ -138,15 +137,15 @@ export default function UserIndex() {
                             </CardHeader>
                             <CardContent className="overflow-x-auto p-0">
                                 {userList.length === 0 ? (
-                                    <div className="py-16 text-center">
-                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                                            <PlusIcon className="h-8 w-8 text-muted-foreground" />
+                                    <div className="py-14 text-center">
+                                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                                            <PlusIcon className="h-7 w-7 text-muted-foreground" />
                                         </div>
-                                        <h3 className="mb-2 text-lg font-medium">Belum ada user</h3>
+                                        <h3 className="mb-2 text-lg font-medium text-foreground">Belum ada user</h3>
                                         <p className="text-muted-foreground">Belum ada user yang terdaftar. Silahkan tambahkan user baru.</p>
                                     </div>
                                 ) : (
-                                    <Table className="min-w-[720px]">
+                                    <Table className="w-full overflow-x-auto">
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Nama</TableHead>
@@ -163,41 +162,28 @@ export default function UserIndex() {
                                                     <TableCell>{user.email}</TableCell>
                                                     <TableCell>{user.role.name}</TableCell>
                                                     <TableCell>{user.division?.name ?? '-'}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap justify-end gap-2">
-                                                            <Link href={userRoutes.show(user.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950"
-                                                                    aria-label="Lihat"
-                                                                >
-                                                                    <EyeIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Lihat</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Link href={userRoutes.edit(user.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950"
-                                                                    aria-label="Edit"
-                                                                >
-                                                                    <EditIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Edit</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                onClick={() => openDeleteModal(user.id)}
-                                                                aria-label="Hapus"
-                                                            >
-                                                                <Trash2Icon className="h-4 w-4" />
-                                                                <span className="sr-only">Hapus</span>
-                                                            </Button>
-                                                        </div>
+                                                    <TableCell className="flex justify-end space-x-2 text-right">
+                                                        <Link
+                                                            href={userRoutes.edit(user.id).url}
+                                                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                            title="Edit User"
+                                                        >
+                                                            <EditIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <Link
+                                                            href={userRoutes.show(user.id).url}
+                                                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                            title="Lihat User"
+                                                        >
+                                                            <EyeIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <button
+                                                            onClick={() => openDeleteModal(user.id)}
+                                                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                            title="Hapus User"
+                                                        >
+                                                            <Trash2Icon className="h-5 w-5" />
+                                                        </button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -205,7 +191,9 @@ export default function UserIndex() {
                                     </Table>
                                 )}
                             </CardContent>
-                            <CardFooter>{(users as any)?.links ? <DataPagination paginationData={users as any} /> : null}</CardFooter>
+                            <CardFooter>
+                                {!Array.isArray(users) && (users as any)?.links ? <DataPagination paginationData={users as any} /> : null}
+                            </CardFooter>
                         </Card>
                     </div>
                 </div>

@@ -106,7 +106,7 @@ export default function AuditIndex({ audits: pagination, filters }: PageProps) {
 
                         {/* Table */}
                         <div className="overflow-x-auto">
-                            <Table>
+                            <Table className="min-w-[960px]">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Waktu</TableHead>

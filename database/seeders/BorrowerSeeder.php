@@ -10,23 +10,20 @@ class BorrowerSeeder extends Seeder
 {
     public function run(): void
     {
-        $division = Division::query()->first();
-        if (!$division) {
+        $divisions = Division::all();
+        if ($divisions->isEmpty()) {
             $this->command?->warn('No divisions found. Run DivisionSeeder first.');
             return;
         }
 
-        $names = [
-            'PT Nusantara Sejahtera',
-            'CV Maju Bersama',
-            'UD Sumber Rejeki',
-        ];
-
-        foreach ($names as $name) {
-            Borrower::firstOrCreate([
-                'name' => $name,
-                'division_id' => $division->id,
-            ]);
+        foreach ($divisions as $division) {
+            // Buat minimal 12 debitur per divisi dengan penamaan unik
+            for ($i = 1; $i <= 12; $i++) {
+                Borrower::firstOrCreate([
+                    'name' => sprintf('Debitur %s #%02d', $division->code, $i),
+                    'division_id' => $division->id,
+                ]);
+            }
         }
     }
 }

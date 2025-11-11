@@ -147,7 +147,7 @@ export interface Report {
     period: Period;
     template: Template;
     creator: User;
-    status: string;
+    status: number | string;
     submitted_at: string;
     rejection_reason: string;
     created_by: number;
@@ -233,6 +233,7 @@ export type ActionItemType = 'previous_period' | 'current_progress' | 'next_peri
 export interface WatchlistNotePageProps {
     watchlist: any;
     report_data: Report;
+    previous_report_data?: Report | null;
     monitoring_note: MonitoringNote;
     action_items: {
         previous_period: ActionItem[];

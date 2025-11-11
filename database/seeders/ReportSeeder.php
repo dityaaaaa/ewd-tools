@@ -26,12 +26,15 @@ class ReportSeeder extends Seeder
             return;
         }
 
-        // Ambil satu periode yang tersedia; tidak bergantung pada nama tertentu
-        $period = Period::query()->orderBy('start_date')->first();
-        if (!$period) {
+        // Ambil 2 periode terakhir untuk membuat laporan periode sebelumnya dan saat ini
+        $periods = Period::query()->orderBy('start_date')->get();
+        if ($periods->isEmpty()) {
             $this->command?->warn('No period found. Run PeriodSeeder first.');
             return;
         }
+        $targetPeriods = $periods->count() >= 2
+            ? $periods->slice(-2) // dua periode terakhir (periode sebelumnya dan saat ini)
+            : $periods;           // fallback jika hanya satu periode tersedia
 
         $template = Template::query()->first();
         if (!$template) {
@@ -39,39 +42,42 @@ class ReportSeeder extends Seeder
             return;
         }
 
-        $borrowers = Borrower::query()->limit(3)->get();
+        // Buat laporan untuk semua debitur dari setiap divisi
+        $borrowers = Borrower::query()->get();
         if ($borrowers->isEmpty()) {
             $this->command?->warn('No borrowers found. Run BorrowerSeeder first.');
             return;
         }
 
-        DB::transaction(function () use ($borrowers, $period, $template, $admin) {
+        DB::transaction(function () use ($borrowers, $targetPeriods, $template, $admin) {
             foreach ($borrowers as $borrower) {
-                $report = Report::firstOrCreate([
-                    'borrower_id' => $borrower->id,
-                    'period_id' => $period->id,
-                    'template_id' => $template->id,
-                ], [
-                    'status' => ReportStatus::SUBMITTED->value,
-                    'submitted_at' => now(),
-                    'created_by' => $admin->id,
-                ]);
-
-                // Create pending approvals (will trigger audits via Auditable)
-                foreach ([ApprovalLevel::ERO, ApprovalLevel::KADEPT_BISNIS, ApprovalLevel::KADIV_ERO] as $level) {
-                    Approval::firstOrCreate([
-                        'report_id' => $report->id,
-                        'level' => $level->value,
+                foreach ($targetPeriods as $period) {
+                    $report = Report::firstOrCreate([
+                        'borrower_id' => $borrower->id,
+                        'period_id' => $period->id,
+                        'template_id' => $template->id,
                     ], [
-                        'status' => ApprovalStatus::PENDING->value,
+                        'status' => ReportStatus::SUBMITTED->value,
+                        'submitted_at' => now(),
+                        'created_by' => $admin->id,
                     ]);
+
+                    // Buat jalur approval pending (memicu audit via Auditable)
+                    foreach ([ApprovalLevel::ERO, ApprovalLevel::KADEPT_BISNIS, ApprovalLevel::KADIV_ERO] as $level) {
+                        Approval::firstOrCreate([
+                            'report_id' => $report->id,
+                            'level' => $level->value,
+                        ], [
+                            'status' => ApprovalStatus::PENDING->value,
+                        ]);
+                    }
+
+                    // Simulasi perubahan untuk menghasilkan audit 'updated'
+                    $report->update(['rejection_reason' => null]);
+
+                    // Hitung ringkasan awal agar tidak null pada UI
+                    app(ReportCalculationService::class)->calculateAndStoreSummary($report, $admin);
                 }
-
-                // Simulate an update on the report to generate an 'updated' audit
-                $report->update(['rejection_reason' => null]);
-
-                // Generate calculated summary to avoid null summary on UI
-                app(ReportCalculationService::class)->calculateAndStoreSummary($report, $admin);
             }
         });
     }

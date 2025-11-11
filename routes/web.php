@@ -61,6 +61,11 @@ Route::resource('reports', ReportController::class)
     ->middleware(['auth', 'verified'])
     ->names('reports');
 
+// Export PDF untuk laporan yang sudah selesai
+Route::get('reports/{report}/export-pdf', [ReportController::class, 'exportPdf'])
+    ->middleware(['auth', 'verified'])
+    ->name('reports.exportPdf');
+
 Route::get('approvals', [ApprovalController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('approvals.index');

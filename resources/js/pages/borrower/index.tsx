@@ -1,16 +1,15 @@
 import DataPagination from '@/components/data-pagination';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import borrowerRoutes from '@/routes/borrowers';
 import { type Borrower, type BreadcrumbItem, type Division, type MaybePaginated } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { EditIcon, EyeIcon, Loader2 as Loader2Icon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArchiveIcon, EditIcon, EyeIcon, Loader2 as Loader2Icon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -119,7 +118,9 @@ export default function BorrowerIndex() {
                                 </div>
                                 <div className="text-right">
                                     <div className="rounded-lg border p-3 sm:p-4">
-                                        <div className="text-xl font-bold sm:text-2xl">{(!Array.isArray(borrowers) && (borrowers as any)?.total) ?? borrowerList.length ?? 0}</div>
+                                        <div className="text-xl font-bold sm:text-2xl">
+                                            {(!Array.isArray(borrowers) && (borrowers as any)?.total) ?? borrowerList.length ?? 0}
+                                        </div>
                                         <div className="text-xs text-muted-foreground sm:text-sm">Total Debitur</div>
                                     </div>
                                 </div>
@@ -146,30 +147,6 @@ export default function BorrowerIndex() {
                                             </Button>
                                         )}
                                     </div>
-                                    <div className="w-full sm:w-64">
-                                        <Select
-                                            value={divisionId ?? undefined}
-                                            onValueChange={(value) => {
-                                                if (value === '__all') {
-                                                    setDivisionId(undefined);
-                                                } else {
-                                                    setDivisionId(value);
-                                                }
-                                            }}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Semua Divisi" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="__all">Semua Divisi</SelectItem>
-                                                {divisions.map((d) => (
-                                                    <SelectItem key={d.id} value={String(d.id)}>
-                                                        {d.code} — {d.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
                                 </div>
                                 <Link href={borrowerRoutes.create().url}>
                                     <Button>
@@ -182,7 +159,7 @@ export default function BorrowerIndex() {
                                 {borrowerList.length === 0 ? (
                                     <div className="py-16 text-center">
                                         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                                            <PlusIcon className="h-8 w-8 text-muted-foreground" />
+                                            <ArchiveIcon className="h-8 w-8 text-muted-foreground" />
                                         </div>
                                         <h3 className="mb-2 text-lg font-medium">Belum ada debitur</h3>
                                         <p className="text-muted-foreground">Belum ada debitur yang terdaftar. Silahkan tambahkan debitur baru.</p>
@@ -201,41 +178,28 @@ export default function BorrowerIndex() {
                                                 <TableRow key={borrower.id}>
                                                     <TableCell className="font-medium">{borrower.name}</TableCell>
                                                     <TableCell>{borrower.division.code}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap justify-end gap-2">
-                                                            <Link href={borrowerRoutes.show(borrower.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950"
-                                                                    aria-label="Lihat"
-                                                                >
-                                                                    <EyeIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Lihat</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Link href={borrowerRoutes.edit(borrower.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950"
-                                                                    aria-label="Edit"
-                                                                >
-                                                                    <EditIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Edit</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                onClick={() => openDeleteModal(borrower.id)}
-                                                                aria-label="Hapus"
-                                                            >
-                                                                <Trash2Icon className="h-4 w-4" />
-                                                                <span className="sr-only">Hapus</span>
-                                                            </Button>
-                                                        </div>
+                                                    <TableCell className="flex justify-end space-x-2 text-right">
+                                                        <Link
+                                                            href={borrowerRoutes.edit(borrower.id).url}
+                                                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                            title="Edit Debitur"
+                                                        >
+                                                            <EditIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <Link
+                                                            href={borrowerRoutes.show(borrower.id).url}
+                                                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                            title="Lihat Debitur"
+                                                        >
+                                                            <EyeIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <button
+                                                            onClick={() => openDeleteModal(borrower.id)}
+                                                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                            title="Hapus Debitur"
+                                                        >
+                                                            <Trash2Icon className="h-5 w-5" />
+                                                        </button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -265,9 +229,7 @@ export default function BorrowerIndex() {
                             <Trash2Icon className="h-6 w-6 text-destructive" />
                         </div>
                         <DialogTitle>Hapus debitur?</DialogTitle>
-                        <DialogDescription>
-                            Menghapus debitur terpilih. Tindakan ini permanen dan tidak dapat dibatalkan.
-                        </DialogDescription>
+                        <DialogDescription>Menghapus debitur terpilih. Tindakan ini permanen dan tidak dapat dibatalkan.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <Button variant="outline" onClick={closeDeleteModal} disabled={isDeleting}>

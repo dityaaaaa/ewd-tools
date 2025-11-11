@@ -20,6 +20,8 @@ interface FormProps {
     borrower_data?: any;
     facility_data?: any;
     purpose_options?: any[];
+    submit_url?: string;
+    answers?: { questionId: number; selectedOptionId: number | null; notes: string }[];
 }
 
 interface StepperStep {
@@ -40,6 +42,8 @@ export default function FormIndex({
     borrower_data = {},
     facility_data = {},
     purpose_options = [],
+    submit_url,
+    answers = [],
 }: FormProps) {
     const [isSavingStep, setIsSavingStep] = useState(false);
 
@@ -63,13 +67,14 @@ export default function FormIndex({
             informationBorrower: borrower_data || initialFormState.informationBorrower,
             facilitiesBorrower: facility_data || [],
             aspectGroups: aspect_groups || [],
+            aspectsBorrower: answers || [],
             reportMeta: {
                 template_id: template_id,
                 period_id: period?.id,
             },
             activeStep: initialFormState.activeStep,
         } as Partial<FormStoreState>);
-    }, [hydrate, borrower_data, facility_data, aspect_groups, template_id, period]);
+    }, [hydrate, borrower_data, facility_data, aspect_groups, template_id, period, answers]);
 
     const handleNextStep = async () => {
         if (activeStep >= totalSteps) return;
@@ -96,7 +101,7 @@ export default function FormIndex({
         }
     };
 
-    const { post, processing, errors, data, setData } = useForm({
+    const { post, put, processing, errors, data, setData } = useForm({
         ...getAsSubmitData(),
     });
 
@@ -114,7 +119,10 @@ export default function FormIndex({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        post('/forms', {
+        const targetUrl = submit_url ?? '/forms';
+        const submitFn = submit_url ? put : post;
+
+        submitFn(targetUrl, {
             onSuccess: () => {
                 resetForm();
                 toast.success('Data berhasil disimpan!');

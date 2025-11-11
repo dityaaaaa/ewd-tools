@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
             ReportSeeder::class,
             AnswerSeeder::class,
             MonitoringNoteSeeder::class,
+            ApprovalSeeder::class,
         ]);
     }
 }

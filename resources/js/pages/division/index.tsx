@@ -1,15 +1,15 @@
 import DataPagination from '@/components/data-pagination';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import divisionRoutes from '@/routes/divisions';
 import { type BreadcrumbItem, type Division, type MaybePaginated } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { BuildingIcon, EditIcon, EyeIcon, Loader2 as Loader2Icon, PlusIcon, Trash2Icon, SearchIcon, XIcon } from 'lucide-react';
+import { BuildingIcon, EditIcon, EyeIcon, Loader2 as Loader2Icon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -31,12 +31,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function DivisionIndex() {
     const pageProps = usePage<PageProps>().props;
     const divisions = pageProps.divisions;
-    const divisionList: Division[] = Array.isArray(divisions) ? divisions : divisions?.data ?? [];
+    const divisionList: Division[] = Array.isArray(divisions) ? divisions : (divisions?.data ?? []);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [divisionToDelete, setDivisionToDelete] = useState<number | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Search state synced with URL like UserIndex
     const initialQ = useMemo(() => {
         try {
             const params = new URLSearchParams(window.location.search);
@@ -45,6 +44,7 @@ export default function DivisionIndex() {
             return '';
         }
     }, []);
+
     const [q, setQ] = useState<string>(initialQ);
 
     const openDeleteModal = (id: number) => {
@@ -136,15 +136,15 @@ export default function DivisionIndex() {
                             </CardHeader>
                             <CardContent className="overflow-x-auto p-0">
                                 {divisionList.length === 0 ? (
-                                    <div className="py-16 text-center">
-                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                                            <BuildingIcon className="h-8 w-8 text-muted-foreground" />
+                                    <div className="py-14 text-center">
+                                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                                            <BuildingIcon className="h-7 w-7 text-muted-foreground" />
                                         </div>
                                         <h3 className="mb-2 text-lg font-medium">Belum ada divisi</h3>
                                         <p className="text-muted-foreground">Belum ada divisi yang terdaftar. Silahkan tambahkan divisi baru.</p>
                                     </div>
                                 ) : (
-                                    <Table className="min-w-[720px]">
+                                    <Table className="w-full overflow-x-auto">
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Kode</TableHead>
@@ -157,41 +157,28 @@ export default function DivisionIndex() {
                                                 <TableRow key={division.id}>
                                                     <TableCell className="font-medium">{division.code}</TableCell>
                                                     <TableCell>{division.name}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap justify-end gap-2">
-                                                            <Link href={divisionRoutes.show(division.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950"
-                                                                    aria-label="Lihat"
-                                                                >
-                                                                    <EyeIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Lihat</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Link href={divisionRoutes.edit(division.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950"
-                                                                    aria-label="Edit"
-                                                                >
-                                                                    <EditIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Edit</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                onClick={() => openDeleteModal(division.id)}
-                                                                aria-label="Hapus"
-                                                            >
-                                                                <Trash2Icon className="h-4 w-4" />
-                                                                <span className="sr-only">Hapus</span>
-                                                            </Button>
-                                                        </div>
+                                                    <TableCell className="flex justify-end space-x-2 text-right">
+                                                        <Link
+                                                            href={divisionRoutes.edit(division.id).url}
+                                                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                            title="Edit Divisi"
+                                                        >
+                                                            <EditIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <Link
+                                                            href={divisionRoutes.show(division.id).url}
+                                                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                            title="Lihat Divisi"
+                                                        >
+                                                            <EyeIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <button
+                                                            onClick={() => openDeleteModal(division.id)}
+                                                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                            title="Hapus Divisi"
+                                                        >
+                                                            <Trash2Icon className="h-5 w-5" />
+                                                        </button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -219,9 +206,7 @@ export default function DivisionIndex() {
                             <Trash2Icon className="h-6 w-6 text-destructive" />
                         </div>
                         <DialogTitle>Hapus divisi?</DialogTitle>
-                        <DialogDescription>
-                            Menghapus divisi terpilih. Tindakan ini permanen dan tidak dapat dibatalkan.
-                        </DialogDescription>
+                        <DialogDescription>Menghapus divisi terpilih. Tindakan ini permanen dan tidak dapat dibatalkan.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                         <Button variant="outline" onClick={closeDeleteModal} disabled={isDeleting}>

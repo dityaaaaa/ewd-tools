@@ -10,6 +10,7 @@ use App\Services\FormService;
 use App\Services\PeriodService;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
@@ -70,6 +71,9 @@ class FormController extends Controller
 
             return redirect()->route('summary.show', ['report' => $report->id])
                 ->with('success', 'Formulir berhasil disubmit.');
+        } catch (ValidationException $e) {
+            // Teruskan error validasi ke UI agar ditampilkan di form
+            throw $e;
         } catch (Exception $e) {
             report($e);
             return back()->with('error', 'Terjadi kesalahan saat menyimpan data.');

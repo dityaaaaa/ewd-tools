@@ -198,41 +198,28 @@ export default function AspectIndex() {
                                                     <TableCell>{aspect.code}</TableCell>
                                                     <TableCell>v{aspect.latest_aspect_version.version_number}</TableCell>
                                                     <TableCell>{aspect.latest_aspect_version.question_versions.length}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap justify-end gap-1 sm:gap-2">
-                                                            <Link href={aspectRoutes.show(aspect.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950"
-                                                                    aria-label="Lihat"
-                                                                >
-                                                                    <EyeIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Lihat</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Link href={aspectRoutes.edit(aspect.id).url}>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950"
-                                                                    aria-label="Edit"
-                                                                >
-                                                                    <EditIcon className="h-4 w-4" />
-                                                                    <span className="sr-only">Edit</span>
-                                                                </Button>
-                                                            </Link>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                onClick={() => openDeleteModal(aspect.id)}
-                                                                aria-label="Hapus"
-                                                            >
-                                                                <Trash2Icon className="h-4 w-4" />
-                                                                <span className="sr-only">Hapus</span>
-                                                            </Button>
-                                                        </div>
+                                                    <TableCell className="flex justify-end space-x-2 text-right">
+                                                        <Link
+                                                            href={aspectRoutes.edit(aspect.id).url}
+                                                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                            title="Edit Aspek"
+                                                        >
+                                                            <EditIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <Link
+                                                            href={aspectRoutes.show(aspect.id).url}
+                                                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                            title="Lihat Aspek"
+                                                        >
+                                                            <EyeIcon className="h-5 w-5" />
+                                                        </Link>
+                                                        <button
+                                                            onClick={() => openDeleteModal(aspect.id)}
+                                                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                            title="Hapus Aspek"
+                                                        >
+                                                            <Trash2Icon className="h-5 w-5" />
+                                                        </button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

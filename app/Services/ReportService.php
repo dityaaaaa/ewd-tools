@@ -12,7 +12,17 @@ class ReportService
 {
     public function getAllReports($perPage = 15, array $filters = [])
     {
-        $query = Report::with(['borrower', 'borrower.division', 'period', 'creator'])->latest();
+        $query = Report::with([
+            'borrower',
+            'borrower.division',
+            'period',
+            'creator',
+            'summary',
+            'watchlist',
+            'approvals' => function ($q) {
+                $q->orderBy('level');
+            },
+        ])->latest();
 
         // General search (q): borrower name, division code/name, period name, creator name
         $q = trim((string)($filters['q'] ?? ''));
@@ -86,17 +96,10 @@ class ReportService
             return $this->getReportsCreatedByUser($user);
         }
 
-        // For other roles, use the existing approval workflow logic
-        $approvalLevel = null;
-        if ($user->hasRole('risk_analyst')) {
-            $approvalLevel = ApprovalLevel::ERO;
-        } elseif ($user->hasRole('kadept_bisnis')) {
-            $approvalLevel = ApprovalLevel::KADEPT_BISNIS;
-        } elseif ($user->hasRole('kadept_risk')) {
-            $approvalLevel = ApprovalLevel::KADIV_ERO;
-        }
-
-        if (!$approvalLevel) {
+        // Untuk role selain admin & RM, ambil seluruh laporan di divisi user
+        // (risk_analyst, kadept_bisnis, kadept_risk) untuk monitoring proses pelaporan hingga final.
+        $isDivisionWideRole = $user->hasRole('risk_analyst') || $user->hasRole('kadept_bisnis') || $user->hasRole('kadept_risk');
+        if (!$isDivisionWideRole) {
             return collect();
         }
 
@@ -119,31 +122,8 @@ class ReportService
             });
         }
 
-        // Filter based on approval level and workflow
-        if ($approvalLevel === ApprovalLevel::ERO) {
-            // ERO reviews reports that are SUBMITTED
-            $query->where('status', ReportStatus::SUBMITTED);
-        } elseif ($approvalLevel === ApprovalLevel::KADEPT_BISNIS) {
-            // Kadept Bisnis approves after ERO review; report should be REVIEWED
-            $query->where('status', ReportStatus::REVIEWED)
-                  ->whereHas('approvals', function($q) {
-                      $q->where('level', ApprovalLevel::ERO)
-                        ->where('status', ApprovalStatus::APPROVED);
-                  });
-        } elseif ($approvalLevel === ApprovalLevel::KADIV_ERO) {
-            // Kadiv Risk final approval after Kadept Bisnis; report should be APPROVED
-            $query->where('status', ReportStatus::APPROVED)
-                  ->whereHas('approvals', function($q) {
-                      $q->where('level', ApprovalLevel::KADEPT_BISNIS)
-                        ->where('status', ApprovalStatus::APPROVED);
-                  });
-        }
-
-        // Only show reports that have pending approval at this level
-        $query->whereHas('approvals', function($q) use ($approvalLevel) {
-            $q->where('level', $approvalLevel)
-              ->where('status', ApprovalStatus::PENDING);
-        });
+        // Untuk monitoring, jangan batasi berdasarkan status approval workflow.
+        // Tampilkan seluruh laporan pada divisi user (jika ada), beserta approvals terurut.
 
         return $query->latest()->get();
     }

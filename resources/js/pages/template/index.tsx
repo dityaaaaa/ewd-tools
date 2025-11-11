@@ -168,59 +168,46 @@ export default function TemplateIndex() {
                                     <div className="overflow-x-auto">
                                         <div className="min-w-[720px]">
                                             <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Judul</TableHead>
-                                                        <TableHead>Jumlah Aspek</TableHead>
-                                                        <TableHead>Aksi</TableHead>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Judul</TableHead>
+                                                    <TableHead>Jumlah Aspek</TableHead>
+                                                    <TableHead className="text-right">Aksi</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {templateList.map((template) => (
+                                                    <TableRow key={template.id}>
+                                                        <TableCell className="font-medium">{template.latest_template_version.name}</TableCell>
+                                                        <TableCell>{template.latest_template_version.aspects.length}</TableCell>
+                                                        <TableCell className="flex justify-end space-x-2 text-right">
+                                                            <Link
+                                                                href={templateRoutes.edit(template.id).url}
+                                                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                                                title="Edit Template"
+                                                            >
+                                                                <EditIcon className="h-5 w-5" />
+                                                            </Link>
+                                                            <Link
+                                                                href={templateRoutes.show(template.id).url}
+                                                                className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                                                title="Lihat Template"
+                                                            >
+                                                                <EyeIcon className="h-5 w-5" />
+                                                            </Link>
+                                                            <button
+                                                                onClick={() => openDeleteModal(template.id)}
+                                                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                                title="Hapus Template"
+                                                            >
+                                                                <Trash2Icon className="h-5 w-5" />
+                                                            </button>
+                                                        </TableCell>
                                                     </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {templateList.map((template) => (
-                                                        <TableRow key={template.id}>
-                                                            <TableCell className="font-medium">{template.latest_template_version.name}</TableCell>
-                                                            <TableCell>{template.latest_template_version.aspects.length}</TableCell>
-                                                            <TableCell>
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    <Link href={templateRoutes.show(template.id).url}>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-950"
-                                                                            aria-label="Lihat"
-                                                                        >
-                                                                            <EyeIcon className="h-4 w-4" />
-                                                                            <span className="sr-only">Lihat</span>
-                                                                        </Button>
-                                                                    </Link>
-                                                                    <Link href={templateRoutes.edit(template.id).url}>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950"
-                                                                            aria-label="Edit"
-                                                                        >
-                                                                            <EditIcon className="h-4 w-4" />
-                                                                            <span className="sr-only">Edit</span>
-                                                                        </Button>
-                                                                    </Link>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                                        onClick={() => openDeleteModal(template.id)}
-                                                                        aria-label="Hapus"
-                                                                    >
-                                                                        <Trash2Icon className="h-4 w-4" />
-                                                                        <span className="sr-only">Hapus</span>
-                                                                    </Button>
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                     </div>
                                 )}
                             </CardContent>
