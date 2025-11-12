@@ -296,6 +296,12 @@ export default function PeriodIndex() {
                                         )}
                                     </div>
                                 </div>
+                                <Link href={periods.create().url}>
+                                    <Button>
+                                        <PlusIcon className="h-4 w-4" />
+                                        Tambah Periode
+                                    </Button>
+                                </Link>
                             </CardHeader>
                             <CardContent className="overflow-x-auto p-0">
                                 {filteredPeriods.length === 0 ? (
