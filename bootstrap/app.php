@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -19,10 +18,6 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
-        // $middleware->alias([
-        //     'permission' => CheckPermission::class,
-        // ]);
-
         $middleware->web(append: [
             HandleAppearance::class,
             HandleInertiaRequests::class,
@@ -30,9 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Render a friendly Server Error page for unexpected exceptions
         $exceptions->render(function (Request $request) {
-            // Preserve JSON responses and local debug screens
             if ($request->expectsJson() || app()->isLocal()) {
                 return null;
             }
