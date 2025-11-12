@@ -7,6 +7,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -28,5 +31,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Render a friendly Server Error page for unexpected exceptions
+        $exceptions->render(function (Throwable $e, Request $request) {
+            // Preserve JSON responses and local debug screens
+            if ($request->expectsJson() || app()->isLocal()) {
+                return null;
+            }
+
+            return Inertia::render('errors/server-error')
+                ->toResponse($request)
+                ->setStatusCode(500);
+        });
     })->create();

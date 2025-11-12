@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ErrorBoundary from '@/components/error-boundary';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -16,7 +17,7 @@ createInertiaApp({
         const root = createRoot(el);
 
         root.render(
-            <>
+            <ErrorBoundary>
                 <App {...props} />
                 <ToastContainer 
                     position='top-right'
@@ -27,7 +28,7 @@ createInertiaApp({
                     pauseOnHover={false}
                     theme='colored'
                 />
-            </>
+            </ErrorBoundary>
         );
     },
     progress: {

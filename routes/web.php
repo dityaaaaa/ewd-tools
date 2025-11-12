@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
-})->name('home');
+    return redirect()->route('dashboard');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -61,7 +61,6 @@ Route::resource('reports', ReportController::class)
     ->middleware(['auth', 'verified'])
     ->names('reports');
 
-// Export PDF untuk laporan yang sudah selesai
 Route::get('reports/{report}/export-pdf', [ReportController::class, 'exportPdf'])
     ->middleware(['auth', 'verified'])
     ->name('reports.exportPdf');
@@ -85,3 +84,10 @@ Route::get('admin/audits', [AuditController::class, 'index'])
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/watchlist.php';
+
+// Fallback 404 route to render a friendly Not Found page
+Route::fallback(function () {
+    return Inertia::render('errors/not-found')
+        ->toResponse(request())
+        ->setStatusCode(404);
+});
