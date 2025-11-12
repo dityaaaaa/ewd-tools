@@ -303,7 +303,10 @@ export default function PeriodIndex() {
                                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                                             <ClockIcon className="h-7 w-7 text-muted-foreground" />
                                         </div>
-                                        <p className="text-muted-foreground">Belum ada periode yang terdaftar.</p>
+                                        <h3 className="mb-2 text-base font-medium text-foreground">Belum ada periode</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Belum ada periode yang terdaftar. Silahkan tambahkan periode baru.
+                                        </p>
                                     </div>
                                 ) : (
                                     <Table className="min-w-[680px]">

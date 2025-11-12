@@ -1,3 +1,4 @@
+import DataPagination from '@/components/data-pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -7,12 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import DataPagination from '@/components/data-pagination';
 import { dashboard } from '@/routes';
 import approvals from '@/routes/approvals';
 import { BreadcrumbItem, User } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertCircleIcon, CheckIcon, ClockIcon, EyeIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
+import { AlertCircleIcon, CheckCircleIcon, CheckIcon, ClockIcon, EyeIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -67,7 +67,21 @@ type Report = {
 };
 
 type PageProps = {
-    reports: Report[] | { data: Report[]; links: any; current_page: number; last_page: number; next_page_url?: string | null; prev_page_url?: string | null; from?: number; to?: number; total?: number; per_page?: number; path?: string };
+    reports:
+        | Report[]
+        | {
+              data: Report[];
+              links: any;
+              current_page: number;
+              last_page: number;
+              next_page_url?: string | null;
+              prev_page_url?: string | null;
+              from?: number;
+              to?: number;
+              total?: number;
+              per_page?: number;
+              path?: string;
+          };
     user: User & {
         division?: {
             id: number;
@@ -441,7 +455,9 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                                 </div>
                                 <div className="grid gap-2 sm:gap-3 sm:text-right">
                                     <div className="rounded-lg border p-3 sm:p-4">
-                                        <div className="text-xl font-bold sm:text-2xl">{Array.isArray(reports) ? reports.length : (reports?.data?.length ?? 0)}</div>
+                                        <div className="text-xl font-bold sm:text-2xl">
+                                            {Array.isArray(reports) ? reports.length : (reports?.data?.length ?? 0)}
+                                        </div>
                                         <div className="text-xs text-muted-foreground sm:text-sm">Total Laporan</div>
                                     </div>
                                     <div className="rounded-lg border p-3 sm:p-4">
@@ -503,12 +519,12 @@ export default function ApprovalIndex({ reports, user }: PageProps) {
                             </CardHeader>
                             <CardContent className="overflow-x-auto p-0">
                                 {filteredReports.length === 0 ? (
-                                    <div className="py-16 text-center">
-                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                                            <ClockIcon className="h-8 w-8 text-muted-foreground" />
+                                    <div className="py-14 text-center">
+                                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                                            <CheckCircleIcon className="h-7 w-7 text-muted-foreground" />
                                         </div>
-                                        <h3 className="mb-2 text-lg font-medium text-muted-foreground">Tidak ada laporan</h3>
-                                        <p className="text-muted-foreground">Tidak ada laporan yang menunggu persetujuan saat ini</p>
+                                        <h3 className="mb-2 text-base font-medium text-foreground">Belum ada laporan</h3>
+                                        <p className="text-sm text-muted-foreground">Tidak ada laporan yang menunggu persetujuan saat ini</p>
                                     </div>
                                 ) : (
                                     <Table className="min-w-[800px]">

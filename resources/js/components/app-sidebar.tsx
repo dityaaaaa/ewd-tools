@@ -4,24 +4,22 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import approvals from '@/routes/approvals';
 import aspects from '@/routes/aspects';
+import audits from '@/routes/audits';
 import borrowers from '@/routes/borrowers';
 import divisions from '@/routes/divisions';
 import forms from '@/routes/forms';
 import periods from '@/routes/periods';
 import reports from '@/routes/reports';
-import audits from '@/routes/audits';
 import templates from '@/routes/templates';
 import users from '@/routes/users';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
-    BookOpen,
     BuildingIcon,
     CheckCircleIcon,
     ClipboardListIcon,
     ClockIcon,
     FileTextIcon,
-    Folder,
     FolderIcon,
     LayoutGrid,
     PaperclipIcon,
@@ -32,10 +30,7 @@ import AppLogo from './app-logo';
 import { Button } from './ui/button';
 
 function buildNavItemsByRole(page: SharedData): NavItem[] {
-    const roles = new Set([
-        ...(page.auth.user.roles?.map((r) => r.name) ?? []),
-        page.auth.user.role?.name,
-    ].filter(Boolean) as string[]);
+    const roles = new Set([...(page.auth.user.roles?.map((r) => r.name) ?? []), page.auth.user.role?.name].filter(Boolean) as string[]);
 
     const isAdmin = roles.has('admin');
     const isRM = roles.has('relationship_manager');
@@ -43,9 +38,7 @@ function buildNavItemsByRole(page: SharedData): NavItem[] {
     const isKadeptBisnis = roles.has('kadept_bisnis');
     const isKadeptRisk = roles.has('kadept_risk');
 
-    const items: NavItem[] = [
-        { title: 'Dashboard', href: dashboard(), icon: LayoutGrid },
-    ];
+    const items: NavItem[] = [{ title: 'Dashboard', href: dashboard(), icon: LayoutGrid }];
 
     // Management menus: admin only
     if (isAdmin) {
@@ -73,26 +66,23 @@ function buildNavItemsByRole(page: SharedData): NavItem[] {
     return items;
 }
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
+// const footerNavItems: NavItem[] = [
+//     {
+//         title: 'Repository',
+//         href: 'https://github.com/laravel/react-starter-kit',
+//         icon: Folder,
+//     },
+//     {
+//         title: 'Documentation',
+//         href: 'https://laravel.com/docs/starter-kits#react',
+//         icon: BookOpen,
+//     },
+// ];
 
 export function AppSidebar() {
     const page = usePage<SharedData>();
     const mainNavItems = buildNavItemsByRole(page.props);
-    const roles = new Set([
-        ...(page.props.auth.user.roles?.map((r) => r.name) ?? []),
-        page.props.auth.user.role?.name,
-    ].filter(Boolean) as string[]);
+    const roles = new Set([...(page.props.auth.user.roles?.map((r) => r.name) ?? []), page.props.auth.user.role?.name].filter(Boolean) as string[]);
     const isAdminOrRM = roles.has('admin') || roles.has('relationship_manager');
 
     return (

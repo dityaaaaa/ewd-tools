@@ -10,7 +10,7 @@ import { dashboard } from '@/routes';
 import reportRoutes from '@/routes/reports';
 import { type BreadcrumbItem, type Division, type MaybePaginated, type Period, type Report } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { EditIcon, EyeIcon, Loader2 as Loader2Icon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { EditIcon, EyeIcon, Loader2 as Loader2Icon, PaperclipIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -237,12 +237,14 @@ export default function ReportIndex() {
                             </CardHeader>
                             <CardContent className="p-0">
                                 {reportList.length === 0 ? (
-                                    <div className="py-16 text-center">
-                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                                            <PlusIcon className="h-8 w-8 text-muted-foreground" />
+                                    <div className="py-14 text-center">
+                                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                                            <PaperclipIcon className="h-7 w-7 text-muted-foreground" />
                                         </div>
-                                        <h3 className="mb-2 text-lg font-medium">Belum ada laporan</h3>
-                                        <p className="text-muted-foreground">Belum ada laporan yang terdaftar. Silahkan tambahkan laporan baru.</p>
+                                        <h3 className="mb-2 text-base font-medium text-foreground">Belum ada laporan</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Belum ada laporan yang terdaftar. Silahkan tambahkan laporan baru.
+                                        </p>
                                     </div>
                                 ) : (
                                     <Table className="w-full overflow-x-auto">

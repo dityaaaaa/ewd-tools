@@ -140,8 +140,10 @@ export default function DivisionIndex() {
                                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                                             <BuildingIcon className="h-7 w-7 text-muted-foreground" />
                                         </div>
-                                        <h3 className="mb-2 text-lg font-medium">Belum ada divisi</h3>
-                                        <p className="text-muted-foreground">Belum ada divisi yang terdaftar. Silahkan tambahkan divisi baru.</p>
+                                        <h3 className="mb-2 text-base font-medium text-foreground">Belum ada divisi</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Belum ada divisi yang terdaftar. Silahkan tambahkan divisi baru.
+                                        </p>
                                     </div>
                                 ) : (
                                     <Table className="w-full overflow-x-auto">

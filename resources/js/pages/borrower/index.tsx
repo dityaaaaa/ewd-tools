@@ -9,7 +9,7 @@ import { dashboard } from '@/routes';
 import borrowerRoutes from '@/routes/borrowers';
 import { type Borrower, type BreadcrumbItem, type Division, type MaybePaginated } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ArchiveIcon, EditIcon, EyeIcon, Loader2 as Loader2Icon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { EditIcon, EyeIcon, FolderIcon, Loader2 as Loader2Icon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -157,12 +157,14 @@ export default function BorrowerIndex() {
                             </CardHeader>
                             <CardContent className="overflow-x-auto p-0">
                                 {borrowerList.length === 0 ? (
-                                    <div className="py-16 text-center">
-                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                                            <ArchiveIcon className="h-8 w-8 text-muted-foreground" />
+                                    <div className="py-14 text-center">
+                                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                                            <FolderIcon className="h-7 w-7 text-muted-foreground" />
                                         </div>
-                                        <h3 className="mb-2 text-lg font-medium">Belum ada debitur</h3>
-                                        <p className="text-muted-foreground">Belum ada debitur yang terdaftar. Silahkan tambahkan debitur baru.</p>
+                                        <h3 className="mb-2 text-base font-medium text-foreground">Belum ada debitur</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Belum ada debitur yang terdaftar. Silahkan tambahkan debitur baru.
+                                        </p>
                                     </div>
                                 ) : (
                                     <Table className="min-w-[720px]">
