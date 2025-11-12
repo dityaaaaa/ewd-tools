@@ -74,7 +74,7 @@ class UserController extends Controller
     public function show(User $user)
     {
         return Inertia::render('user/show', [
-            'user' => $user->load('division'),        
+            'user' => $user->load(['division', 'role', 'roles']),
         ]);
     }
 
@@ -84,7 +84,7 @@ class UserController extends Controller
         $roles = Role::all();
 
         return Inertia::render('user/edit', [
-            'user' => $user->load('division'),
+            'user' => $user->load(['division', 'role', 'roles']),
             'divisions' => $divisions,
             'roles' => $roles,
         ]);

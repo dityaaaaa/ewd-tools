@@ -46,19 +46,29 @@ class UserService extends BaseService
     public function store(array $data): User
     {
         $this->authorize('create user');
-
         $user = User::create($data);
 
-        return $user;
+        if (!empty($data['role_id'])) {
+            $role = \Spatie\Permission\Models\Role::findOrFail($data['role_id']);
+            $user->syncRoles([$role->name]);
+            $user->update(['role_id' => $role->id]);
+        }
+
+        return $user->fresh(['division', 'role', 'roles']);
     }
 
     public function update(User $user, array $data): User
     {
         $this->authorize('update user');
-
         $user->update($data);
 
-        return $user;
+        if (!empty($data['role_id'])) {
+            $role = \Spatie\Permission\Models\Role::findOrFail($data['role_id']);
+            $user->syncRoles([$role->name]);
+            $user->update(['role_id' => $role->id]);
+        }
+
+        return $user->fresh(['division', 'role', 'roles']);
     }
 
     public function destroy(User $user): void

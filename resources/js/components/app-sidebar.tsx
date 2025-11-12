@@ -38,29 +38,29 @@ function buildNavItemsByRole(page: SharedData): NavItem[] {
     const isKadeptBisnis = roles.has('kadept_bisnis');
     const isKadeptRisk = roles.has('kadept_risk');
 
-    const items: NavItem[] = [{ title: 'Dashboard', href: dashboard(), icon: LayoutGrid }];
+    const items: NavItem[] = [{ title: 'Dashboard', href: dashboard().url, icon: LayoutGrid }];
 
     // Management menus: admin only
     if (isAdmin) {
-        items.push({ title: 'User', href: users.index(), icon: UserIcon });
-        items.push({ title: 'Divisi', href: divisions.index(), icon: BuildingIcon });
-        items.push({ title: 'Template', href: templates.index(), icon: FileTextIcon });
-        items.push({ title: 'Aspek', href: aspects.index(), icon: ClipboardListIcon });
-        items.push({ title: 'Periode', href: periods.index(), icon: ClockIcon });
-        items.push({ title: 'Audit Logs', href: audits.index(), icon: ClipboardListIcon });
+        items.push({ title: 'User', href: users.index().url, icon: UserIcon });
+        items.push({ title: 'Divisi', href: divisions.index().url, icon: BuildingIcon });
+        items.push({ title: 'Template', href: templates.index().url, icon: FileTextIcon });
+        items.push({ title: 'Aspek', href: aspects.index().url, icon: ClipboardListIcon });
+        items.push({ title: 'Periode', href: periods.index().url, icon: ClockIcon });
+        items.push({ title: 'Audit Logs', href: audits.index().url, icon: ClipboardListIcon });
     }
 
     // Operational menus
     if (isAdmin || isRM) {
-        items.push({ title: 'Debitur', href: borrowers.index(), icon: FolderIcon });
+        items.push({ title: 'Debitur', href: borrowers.index().url, icon: FolderIcon });
     }
 
     if (isAdmin || isRM || isRiskAnalyst) {
-        items.push({ title: 'Laporan', href: reports.index(), icon: PaperclipIcon });
+        items.push({ title: 'Laporan', href: reports.index().url, icon: PaperclipIcon });
     }
 
     if (isAdmin || isRiskAnalyst || isKadeptBisnis || isKadeptRisk) {
-        items.push({ title: 'Persetujuan', href: approvals.index(), icon: CheckCircleIcon });
+        items.push({ title: 'Persetujuan', href: approvals.index().url, icon: CheckCircleIcon });
     }
 
     return items;
@@ -83,7 +83,7 @@ export function AppSidebar() {
     const page = usePage<SharedData>();
     const mainNavItems = buildNavItemsByRole(page.props);
     const roles = new Set([...(page.props.auth.user.roles?.map((r) => r.name) ?? []), page.props.auth.user.role?.name].filter(Boolean) as string[]);
-    const isAdminOrRM = roles.has('admin') || roles.has('relationship_manager');
+    const isRMOnly = roles.has('relationship_manager');
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -91,7 +91,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href={dashboard().url} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -100,12 +100,12 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                {isAdminOrRM && (
+                {isRMOnly && (
                     <div className="px-2 py-1">
                         <Link href={forms.index().url}>
                             <Button className="w-full" size={'sm'}>
                                 <PlusCircleIcon className="h-5 w-5" />
-                                <span>Tambah Report Baru</span>
+                                <span>Buat Laporan</span>
                             </Button>
                         </Link>
                     </div>
