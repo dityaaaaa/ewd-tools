@@ -8,7 +8,7 @@ import { dashboard } from '@/routes';
 import periods from '@/routes/periods';
 import { BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ClockIcon, EditIcon, EyeIcon, PlayIcon, SearchIcon, StopCircle, Trash2Icon, XIcon } from 'lucide-react';
+import { ClockIcon, EditIcon, EyeIcon, PlayIcon, SearchIcon, StopCircle, Trash2Icon, XIcon, PlusIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 
