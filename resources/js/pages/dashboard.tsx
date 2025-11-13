@@ -1,13 +1,15 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
-import { BarChart3Icon, CheckCircleIcon, ClockIcon, ListChecksIcon, SearchIcon, ShieldAlertIcon, UsersIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { BarChart3Icon, ClockIcon, SearchIcon, ShieldAlertIcon, TrendingUp, UsersIcon } from 'lucide-react';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -21,59 +23,45 @@ export default function Dashboard() {
     const data = page.props.dashboardData ?? {};
     const role: string = data.role ?? 'default';
 
-    const topStats = useMemo(() => {
-        if (role === 'admin') {
-            return [
-                { label: 'Terkirim', value: data.stats?.sent ?? 0, icon: BarChart3Icon, percent: 78 },
-                { label: 'Menunggu Review', value: data.stats?.waiting_review ?? 0, icon: ClockIcon, percent: 60 },
-                { label: 'Direview', value: data.stats?.reviewed ?? 0, icon: CheckCircleIcon, percent: 75 },
-                { label: 'Tervalidasi', value: data.stats?.validated ?? 0, icon: CheckCircleIcon, percent: 92 },
-            ];
-        }
-        if (role === 'risk_analyst') {
-            return [
-                { label: 'Menunggu Persetujuan', value: data.stats?.pending_approvals ?? 0, icon: ClockIcon, percent: 60 },
-                { label: 'Disetujui Bulan Ini', value: data.stats?.approved_this_month ?? 0, icon: CheckCircleIcon, percent: 75 },
-                { label: 'Watchlist', value: data.stats?.watchlist_items ?? 0, icon: ShieldAlertIcon, percent: 30 },
-                { label: 'Tugas Aksi', value: data.stats?.action_items ?? 0, icon: ListChecksIcon, percent: 80 },
-            ];
-        }
-        if (role === 'relationship_manager') {
-            return [
-                { label: 'Laporan Saya', value: data.stats?.my_reports ?? 0, icon: BarChart3Icon, percent: 70 },
-                { label: 'Nasabah Saya', value: data.stats?.my_borrowers ?? 0, icon: UsersIcon, percent: 50 },
-                { label: 'Tertunda', value: data.stats?.pending_reports ?? 0, icon: ClockIcon, percent: 40 },
-                { label: 'Disetujui', value: data.stats?.approved_reports ?? 0, icon: CheckCircleIcon, percent: 80 },
-            ];
-        }
-        if (role === 'kadept_bisnis') {
-            return [
-                { label: 'Persetujuan Tertunda', value: data.stats?.pending_approvals ?? 0, icon: ClockIcon, percent: 60 },
-                { label: 'Laporan Divisi', value: data.stats?.division_reports ?? 0, icon: BarChart3Icon, percent: 70 },
-                { label: 'Kinerja Tim', value: data.stats?.team_performance?.reports_completed ?? 0, icon: UsersIcon, percent: 80 },
-                { label: 'Pertumbuhan Bisnis', value: data.stats?.business_growth?.new_borrowers_this_month ?? 0, icon: ListChecksIcon, percent: 30 },
-            ];
-        }
-        if (role === 'kadept_risk') {
-            return [
-                { label: 'Persetujuan Final', value: data.stats?.pending_final_approvals ?? 0, icon: ClockIcon, percent: 50 },
-                { label: 'Portofolio Risiko', value: data.stats?.risk_portfolio?.total_exposure ?? 0, icon: ShieldAlertIcon, percent: 80 },
-                { label: 'Skor Kepatuhan', value: data.stats?.compliance_score ?? 0, icon: CheckCircleIcon, percent: 92 },
-                { label: 'Mitigasi', value: data.stats?.risk_mitigation?.active_mitigations ?? 0, icon: ListChecksIcon, percent: 60 },
-            ];
-        }
-        return [
-            { label: 'Laporan', value: data.stats?.total_reports ?? 0, icon: BarChart3Icon, percent: 70 },
-            { label: 'Nasabah', value: data.stats?.total_borrowers ?? 0, icon: UsersIcon, percent: 40 },
-        ];
-    }, [role, data]);
+    const [currentTime, setCurrentTime] = useState(new Date());
+    useEffect(() => {
+        const t = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(t);
+    }, []);
 
-    const chartSeries = useMemo(() => {
-        if (role === 'admin') return data.charts?.monthly_report_trend ?? [];
-        if (role === 'risk_analyst') return data.charts?.approval_trend ?? [];
-        if (role === 'relationship_manager') return data.charts?.my_reports_status ?? [];
-        return [];
-    }, [role, data]);
+    const remainingTime = useMemo(() => {
+        const endDateStr = data.stats?.period_end_date;
+        if (!endDateStr && typeof data.stats?.period_days_left !== 'number') return { status: 'no_period', message: 'Tidak ada periode' };
+        const end = endDateStr ? new Date(endDateStr) : new Date(currentTime.getTime() + (data.stats?.period_days_left ?? 0) * 24 * 60 * 60 * 1000);
+        const diff = end.getTime() - currentTime.getTime();
+        if (diff <= 0) return { status: 'expired', message: 'Periode telah selesai' };
+        const s = Math.floor(diff / 1000);
+        const m = Math.floor(s / 60);
+        const h = Math.floor(m / 60);
+        const d = Math.floor(h / 24);
+        return { status: 'active', days: d, hours: h % 24, minutes: m % 60, seconds: s % 60 };
+    }, [data.stats?.period_end_date, data.stats?.period_days_left, currentTime]);
+
+    const otherStats = useMemo(() => {
+        const borrowersTotal = Object.values(data.charts?.borrowers_by_division ?? {}).reduce((a: number, b: any) => a + Number(b ?? 0), 0);
+        return [
+            { label: 'Watchlist Keseluruhan', value: data.stats?.watchlist_total ?? 0, icon: ShieldAlertIcon, percent: 100, showPercent: true },
+            { label: 'Laporan Keseluruhan', value: data.stats?.reports_total ?? 0, icon: BarChart3Icon, percent: 100, showPercent: true },
+            { label: 'Debitur Keseluruhan', value: borrowersTotal, icon: UsersIcon, percent: 100, showPercent: true },
+        ];
+    }, [data]);
+
+    const comparisonData = useMemo(() => {
+        const reports = data.charts?.reports_by_division ?? {};
+        const watchlist = data.charts?.watchlist_by_division ?? {};
+        const divisions = Array.from(new Set([...Object.keys(reports), ...Object.keys(watchlist)]));
+        return divisions.map((name) => {
+            const total = Number((reports as any)[name] ?? 0);
+            const wl = Number((watchlist as any)[name] ?? 0);
+            const safe = Math.max(0, total - wl);
+            return { name, watch: wl, safe, total };
+        });
+    }, [data]);
 
     const divisionSummary = useMemo(() => {
         if (role === 'admin') return data.charts?.watchlist_by_division ?? data.charts?.reports_by_division ?? {};
@@ -88,31 +76,68 @@ export default function Dashboard() {
         return [];
     }, [role, data]);
 
-    function SimpleBar({ items }: { items: { x: string; y: number }[] }) {
-        const max = Math.max(1, ...items.map((i) => i.y ?? 0));
+    function StatCard({ icon: Icon, label, value, percent = 100, showPercent = true }: { icon: any; label: string; value: number | string; percent?: number; showPercent?: boolean }) {
         return (
-            <div className="h-40 w-full">
-                <div className="grid h-full w-full grid-cols-12 items-end gap-2">
-                    {items.map((i, idx) => (
-                        <div key={idx} className="flex flex-col items-center">
-                            <div className="w-full rounded-sm bg-primary/80" style={{ height: `${(i.y / max) * 90}%` }} />
-                            <span className="mt-1 text-xs text-muted-foreground">{i.x}</span>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        {label}
+                    </CardTitle>
+                    <CardDescription>
+                        <div className="mt-2 flex items-center justify-between">
+                            <span className="text-2xl font-semibold">{value}</span>
+                            {showPercent && (
+                                <span className="rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{Math.min(100, percent)}%</span>
+                            )}
                         </div>
-                    ))}
-                </div>
-            </div>
+                        {showPercent && (
+                            <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
+                                <div className="h-full bg-primary" style={{ width: `${Math.min(100, percent)}%` }} />
+                            </div>
+                        )}
+                    </CardDescription>
+                </CardHeader>
+            </Card>
         );
     }
 
-    const normalizedBarItems = useMemo(() => {
-        if (Array.isArray(chartSeries)) {
-            if (chartSeries.length && chartSeries[0]?.period && chartSeries[0]?.count !== undefined) {
-                return chartSeries.map((d: any) => ({ x: d.period, y: Number(d.count) || 0 }));
-            }
-            return Object.entries(chartSeries).map(([k, v]) => ({ x: String(k), y: Number(v as any) || 0 }));
+    const GroupedBar = memo(function GroupedBar({ items }: { items: { name: string; watch: number; safe: number }[] }) {
+        if (!items?.length) {
+            return <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">Tidak ada data untuk ditampilkan</div>;
         }
-        return [];
-    }, [chartSeries]);
+        const chartConfig: ChartConfig = {
+            watch: { label: 'Watchlist', color: 'var(--chart-1)' },
+            safe: { label: 'Aman', color: 'var(--chart-2)' },
+        };
+        return (
+            <div className="h-64 w-full">
+                <ChartContainer config={chartConfig} className="h-full">
+                    <ResponsiveContainer width="100%" height="100%" debounce={300}>
+                        <BarChart data={items} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                            <CartesianGrid vertical={false} />
+                            <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                            <ChartLegend content={<ChartLegendContent />} />
+                            <Bar dataKey="watch" stackId="a" fill="var(--color-watch)" radius={[0, 0, 4, 4]} isAnimationActive={false} />
+                            <Bar dataKey="safe" stackId="a" fill="var(--color-safe)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </ChartContainer>
+            </div>
+        );
+    }, (prev, next) => prev.items === next.items);
+
+    const completeness = useMemo(() => {
+        const borrowers = data.charts?.borrowers_by_division ?? {};
+        const reports = data.charts?.reports_by_division ?? {};
+        return Object.entries(borrowers).map(([name, b]) => {
+            const totalBorrowers = Number(b as any) || 0;
+            const totalReports = Number((reports as any)[name] ?? 0);
+            const percent = totalBorrowers ? Math.min(100, Math.round((totalReports / totalBorrowers) * 100)) : 0;
+            return { name, percent, totalBorrowers, totalReports };
+        });
+    }, [data]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -132,74 +157,76 @@ export default function Dashboard() {
                 </div>
 
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {topStats.map((s, idx) => (
-                        <Card key={idx} className="">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <s.icon className="h-4 w-4" />
-                                    {s.label}
-                                </CardTitle>
-                                <CardDescription>
-                                    <div className="mt-2 flex items-center justify-between">
-                                        <span className="text-2xl font-semibold">{s.value}</span>
-                                        <span className="text-xs text-muted-foreground">{s.percent}%</span>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <ClockIcon className="h-4 w-4" />
+                                Sisa Periode
+                            </CardTitle>
+                            <CardDescription>
+                                {remainingTime.status === 'active' ? (
+                                    <div className="mt-2 flex items-end gap-4">
+                                        {[
+                                            { label: 'Hari', value: remainingTime.days },
+                                            { label: 'Jam', value: remainingTime.hours },
+                                            { label: 'Menit', value: remainingTime.minutes },
+                                            { label: 'Detik', value: remainingTime.seconds },
+                                        ].map((t) => (
+                                            <div key={t.label} className="flex flex-col items-center">
+                                                <div className="font-mono text-2xl font-semibold md:text-3xl">{t.value}</div>
+                                                <div className="text-[10px] text-muted-foreground uppercase">{t.label}</div>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
-                                        <div className="h-full bg-primary" style={{ width: `${Math.min(100, s.percent)}%` }} />
-                                    </div>
-                                </CardDescription>
-                            </CardHeader>
-                        </Card>
+                                ) : (
+                                    <div className="mt-2 text-sm">{(remainingTime as any).message ?? '-'}</div>
+                                )}
+                            </CardDescription>
+                        </CardHeader>
+                    </Card>
+                    {otherStats.map((s, idx) => (
+                        <StatCard key={idx} icon={s.icon} label={s.label} value={s.value} percent={s.percent} showPercent={s.showPercent} />
                     ))}
                 </div>
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-12">
                     <Card className="lg:col-span-8">
                         <CardHeader>
-                            <CardTitle>Evolusi</CardTitle>
-                            <CardDescription>Tahun Ini</CardDescription>
+                            <CardTitle>Komparasi Per Divisi</CardTitle>
+                            <CardDescription>Watchlist vs Aman</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <SimpleBar items={normalizedBarItems} />
+                            <GroupedBar items={comparisonData} />
                         </CardContent>
+                        <CardFooter className="flex-col items-start gap-2 text-sm">
+                            <div className="flex gap-2 leading-none font-medium">
+                                Tren positif bulan ini <TrendingUp className="h-4 w-4" />
+                            </div>
+                            <div className="leading-none text-muted-foreground">Ringkasan komparatif per divisi</div>
+                        </CardFooter>
                     </Card>
 
                     <Card className="lg:col-span-4">
                         <CardHeader>
-                            <CardTitle>Departemen</CardTitle>
-                            <CardDescription>Ringkasan per divisi</CardDescription>
+                            <CardTitle>Kelengkapan</CardTitle>
+                            <CardDescription>Persentase per divisi</CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="h-80 overflow-y-auto">
                             <div className="space-y-3">
-                                {Array.isArray(divisionSummary)
-                                    ? divisionSummary.map((d: any, i: number) => (
-                                          <div key={i} className="rounded-md border p-3">
-                                              <div className="flex items-center justify-between">
-                                                  <span className="font-medium">{d.role ?? d.name ?? 'Peran'}</span>
-                                                  <span className="text-sm text-muted-foreground">{d.count ?? 0}</span>
-                                              </div>
-                                              <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
-                                                  <div
-                                                      className="h-full bg-primary"
-                                                      style={{ width: `${Math.min(100, ((d.count ?? 0) / (topStats[0]?.value || 1)) * 100)}%` }}
-                                                  />
-                                              </div>
-                                          </div>
-                                      ))
-                                    : Object.entries(divisionSummary).map(([name, count], i) => (
-                                          <div key={i} className="rounded-md border p-3">
-                                              <div className="flex items-center justify-between">
-                                                  <span className="font-medium">{name}</span>
-                                                  <span className="text-sm text-muted-foreground">{Number(count) || 0}</span>
-                                              </div>
-                                              <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
-                                                  <div
-                                                      className="h-full bg-primary"
-                                                      style={{ width: `${Math.min(100, ((Number(count) || 0) / (topStats[0]?.value || 1)) * 100)}%` }}
-                                                  />
-                                              </div>
-                                          </div>
-                                      ))}
+                                {completeness.map((d, i) => (
+                                    <div key={i} className="rounded-md border p-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-medium">{d.name}</span>
+                                            <span className="text-sm text-muted-foreground">{d.percent}%</span>
+                                        </div>
+                                        <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
+                                            <div className="h-full bg-primary" style={{ width: `${d.percent}%` }} />
+                                        </div>
+                                        <div className="mt-2 text-xs text-muted-foreground">
+                                            {d.totalReports} laporan / {d.totalBorrowers} debitur
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
@@ -207,27 +234,31 @@ export default function Dashboard() {
 
                 <Card className="mt-6">
                     <CardHeader>
-                        <CardTitle>Klien</CardTitle>
-                        <CardDescription>Item terbaru</CardDescription>
+                        <CardTitle>Daftar Laporan Masuk</CardTitle>
+                        <CardDescription>Terbaru</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Perusahaan</TableHead>
-                                        <TableHead>Departemen</TableHead>
+                                        <TableHead>Debitur</TableHead>
+                                        <TableHead>Divisi</TableHead>
                                         <TableHead>Periode</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Tanggal Masuk</TableHead>
+                                        <TableHead>Dibuat Oleh</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {tableRows.map((r: any, idx: number) => (
+                                    {(data.incoming_reports ?? []).map((r: any, idx: number) => (
                                         <TableRow key={idx}>
-                                            <TableCell>{r?.report?.borrower?.name ?? r?.borrower?.name ?? r?.description ?? '-'}</TableCell>
-                                            <TableCell>{r?.report?.borrower?.division?.name ?? r?.borrower?.division?.name ?? '-'}</TableCell>
-                                            <TableCell>{r?.report?.period?.name ?? r?.period?.name ?? '-'}</TableCell>
-                                            <TableCell>{r?.report?.status ?? r?.status ?? '-'}</TableCell>
+                                            <TableCell>{r?.borrower?.name ?? '-'}</TableCell>
+                                            <TableCell>{r?.borrower?.division?.name ?? '-'}</TableCell>
+                                            <TableCell>{r?.period?.name ?? '-'}</TableCell>
+                                            <TableCell>{r?.status ?? '-'}</TableCell>
+                                            <TableCell>{r?.created_at ?? '-'}</TableCell>
+                                            <TableCell>{r?.creator?.name ?? '-'}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

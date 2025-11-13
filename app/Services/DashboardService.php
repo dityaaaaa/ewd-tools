@@ -39,7 +39,7 @@ class DashboardService extends BaseService
             'role' => 'admin',
             'title' => 'Admin Dashboard',
             'description' => 'Kelola sistem secara menyeluruh dan pantau aktivitas semua pengguna',
-            'stats' => [
+            'stats' => array_merge([
                 'total_users' => User::count(),
                 'total_reports' => Report::count(),
                 'total_borrowers' => Borrower::count(),
@@ -48,13 +48,14 @@ class DashboardService extends BaseService
                 'waiting_review' => Approval::where('status', ApprovalStatus::PENDING)->count(),
                 'reviewed' => Approval::where('status', ApprovalStatus::APPROVED)->count(),
                 'validated' => Approval::where('status', ApprovalStatus::APPROVED)->where('level', ApprovalLevel::KADIV_ERO->value)->count(),
-            ],
+            ], $this->getGlobalStats()),
             'charts' => [
                 'reports_by_status' => $this->getReportsByStatus(),
                 'reports_by_division' => $this->getReportsByDivision(),
                 'monthly_report_trend' => $this->getMonthlyReportTrend(),
                 'approval_pipeline' => $this->getApprovalPipelineSummary(),
                 'watchlist_by_division' => $this->getWatchlistByDivision(),
+                'borrowers_by_division' => $this->getBorrowersByDivision(),
             ],
             'recent_activities' => $this->getRecentActivities(),
             'system_health' => $this->getSystemHealth(),
@@ -63,6 +64,7 @@ class DashboardService extends BaseService
                 'overdue_reports' => $this->getOverdueReportsCount(),
                 'inactive_users' => $this->getInactiveUsersCount(),
             ],
+            'incoming_reports' => $this->getIncomingReports(),
         ];
     }
 
@@ -75,12 +77,12 @@ class DashboardService extends BaseService
             'role' => 'relationship_manager',
             'title' => 'Relationship Manager Dashboard',
             'description' => 'Kelola nasabah dan laporan untuk divisi Anda',
-            'stats' => [
+            'stats' => array_merge([
                 'my_reports' => $myReports->count(),
                 'my_borrowers' => $myBorrowers->count(),
                 'pending_reports' => $myReports->where('status', ReportStatus::SUBMITTED->value)->count(),
                 'approved_reports' => $myReports->where('status', ReportStatus::APPROVED->value)->count(),
-            ],
+            ], $this->getGlobalStats()),
             'charts' => [
                 'my_reports_status' => $this->getMyReportsStatus($user),
                 'borrower_risk_distribution' => $this->getBorrowerRiskDistribution($user->division_id),
@@ -112,12 +114,12 @@ class DashboardService extends BaseService
             'role' => 'risk_analyst',
             'title' => 'Risk Analyst Dashboard',
             'description' => 'Analisis risiko dan setujui laporan pada level ERO',
-            'stats' => [
+            'stats' => array_merge([
                 'pending_approvals' => $pendingApprovals->count(),
                 'approved_this_month' => $this->getApprovedThisMonth($user, ApprovalLevel::ERO),
                 'watchlist_items' => $this->getWatchlistCount($user->division_id),
                 'action_items' => $this->getActionItemsCount($user->division_id),
-            ],
+            ], $this->getGlobalStats()),
             'charts' => [
                 'approval_trend' => $this->getApprovalTrend($user, ApprovalLevel::ERO),
                 'risk_classification_distribution' => $this->getRiskClassificationDistribution($user->division_id),
@@ -151,12 +153,12 @@ class DashboardService extends BaseService
             'role' => 'kadept_bisnis',
             'title' => 'Kepala Departemen Bisnis Dashboard',
             'description' => 'Pantau kinerja bisnis dan setujui laporan strategis',
-            'stats' => [
+            'stats' => array_merge([
                 'pending_approvals' => $pendingApprovals->count(),
                 'division_reports' => $this->getDivisionReportsCount($user->division_id),
                 'team_performance' => $this->getTeamPerformance($user->division_id),
                 'business_growth' => $this->getBusinessGrowth($user->division_id),
-            ],
+            ], $this->getGlobalStats()),
             'charts' => [
                 'division_performance' => $this->getDivisionPerformance($user->division_id),
                 'approval_efficiency' => $this->getApprovalEfficiency($user->division_id),
@@ -190,12 +192,12 @@ class DashboardService extends BaseService
             'role' => 'kadept_risk',
             'title' => 'Kepala Departemen Risk Dashboard',
             'description' => 'Kelola risiko divisi dan berikan persetujuan final',
-            'stats' => [
+            'stats' => array_merge([
                 'pending_final_approvals' => $pendingApprovals->count(),
                 'risk_portfolio' => $this->getRiskPortfolioStats($user->division_id),
                 'compliance_score' => $this->getComplianceScore($user->division_id),
                 'risk_mitigation' => $this->getRiskMitigationStats($user->division_id),
-            ],
+            ], $this->getGlobalStats()),
             'charts' => [
                 'risk_trend_analysis' => $this->getRiskTrendAnalysis($user->division_id),
                 'portfolio_health' => $this->getPortfolioHealth($user->division_id),
@@ -223,10 +225,10 @@ class DashboardService extends BaseService
             'role' => 'default',
             'title' => 'Dashboard',
             'description' => 'Selamat datang di sistem monitoring',
-            'stats' => [
+            'stats' => array_merge([
                 'total_reports' => Report::count(),
                 'total_borrowers' => Borrower::count(),
-            ],
+            ], $this->getGlobalStats()),
             'actionable_items' => [],
         ];
     }
@@ -244,6 +246,15 @@ class DashboardService extends BaseService
     {
         return Report::join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
             ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
+            ->select('divisions.name', DB::raw('count(*) as count'))
+            ->groupBy('divisions.name')
+            ->pluck('count', 'name')
+            ->toArray();
+    }
+
+    protected function getBorrowersByDivision(): array
+    {
+        return Borrower::join('divisions', 'borrowers.division_id', '=', 'divisions.id')
             ->select('divisions.name', DB::raw('count(*) as count'))
             ->groupBy('divisions.name')
             ->pluck('count', 'name')
@@ -308,6 +319,20 @@ class DashboardService extends BaseService
         ];
     }
 
+    protected function getGlobalStats(): array
+    {
+        $active = Period::active()->latest()->first();
+        $endDate = $active ? $active->end_date : null;
+        $daysLeft = $endDate ? (Carbon::parse($endDate)->isFuture() ? Carbon::now()->diffInDays(Carbon::parse($endDate)) : 0) : 0;
+
+        return [
+            'reports_total' => Report::count(),
+            'watchlist_total' => Watchlist::count(),
+            'period_end_date' => $endDate,
+            'period_days_left' => $daysLeft,
+        ];
+    }
+
     protected function getOverdueReportsCount(): int
     {
         // Implement logic for overdue reports based on your business rules
@@ -345,6 +370,16 @@ class DashboardService extends BaseService
             ->where('created_by', $user->id)
             ->latest()
             ->limit(5)
+            ->get()
+            ->toArray();
+    }
+
+    protected function getIncomingReports(): array
+    {
+        return Report::with(['borrower.division', 'period', 'creator'])
+            ->where('status', ReportStatus::SUBMITTED->value)
+            ->latest()
+            ->limit(25)
             ->get()
             ->toArray();
     }
