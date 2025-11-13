@@ -43,13 +43,18 @@ class DashboardService extends BaseService
                 'total_users' => User::count(),
                 'total_reports' => Report::count(),
                 'total_borrowers' => Borrower::count(),
-            'active_periods' => Period::where('status', PeriodStatus::ACTIVE)->count(),
+                'active_periods' => Period::where('status', PeriodStatus::ACTIVE)->count(),
+                'sent' => Report::count(),
+                'waiting_review' => Approval::where('status', ApprovalStatus::PENDING)->count(),
+                'reviewed' => Approval::where('status', ApprovalStatus::APPROVED)->count(),
+                'validated' => Approval::where('status', ApprovalStatus::APPROVED)->where('level', ApprovalLevel::KADIV_ERO->value)->count(),
             ],
             'charts' => [
                 'reports_by_status' => $this->getReportsByStatus(),
                 'reports_by_division' => $this->getReportsByDivision(),
                 'monthly_report_trend' => $this->getMonthlyReportTrend(),
                 'approval_pipeline' => $this->getApprovalPipelineSummary(),
+                'watchlist_by_division' => $this->getWatchlistByDivision(),
             ],
             'recent_activities' => $this->getRecentActivities(),
             'system_health' => $this->getSystemHealth(),
@@ -117,6 +122,7 @@ class DashboardService extends BaseService
                 'approval_trend' => $this->getApprovalTrend($user, ApprovalLevel::ERO),
                 'risk_classification_distribution' => $this->getRiskClassificationDistribution($user->division_id),
                 'approval_pipeline' => $this->getApprovalPipelineSummary($user->division_id),
+                'watchlist_by_division' => $this->getWatchlistByDivision(),
             ],
             'pending_approvals_list' => $this->getPendingApprovalsList($user, ApprovalLevel::ERO),
             'watchlist_alerts' => $this->getWatchlistAlerts($user->division_id),
@@ -155,6 +161,7 @@ class DashboardService extends BaseService
                 'division_performance' => $this->getDivisionPerformance($user->division_id),
                 'approval_efficiency' => $this->getApprovalEfficiency($user->division_id),
                 'approval_pipeline' => $this->getApprovalPipelineSummary($user->division_id),
+                'watchlist_by_division' => $this->getWatchlistByDivision(),
             ],
             'pending_approvals_list' => $this->getPendingApprovalsList($user, ApprovalLevel::KADEPT_BISNIS),
             'team_overview' => $this->getTeamOverview($user->division_id),
@@ -193,6 +200,7 @@ class DashboardService extends BaseService
                 'risk_trend_analysis' => $this->getRiskTrendAnalysis($user->division_id),
                 'portfolio_health' => $this->getPortfolioHealth($user->division_id),
                 'approval_pipeline' => $this->getApprovalPipelineSummary($user->division_id),
+                'watchlist_by_division' => $this->getWatchlistByDivision(),
             ],
             'pending_approvals_list' => $this->getPendingApprovalsList($user, ApprovalLevel::KADIV_ERO),
             'risk_alerts' => $this->getRiskAlerts($user->division_id),
@@ -235,6 +243,17 @@ class DashboardService extends BaseService
     protected function getReportsByDivision(): array
     {
         return Report::join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
+            ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
+            ->select('divisions.name', DB::raw('count(*) as count'))
+            ->groupBy('divisions.name')
+            ->pluck('count', 'name')
+            ->toArray();
+    }
+
+    protected function getWatchlistByDivision(): array
+    {
+        return Watchlist::join('reports', 'watchlists.report_id', '=', 'reports.id')
+            ->join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
             ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
             ->select('divisions.name', DB::raw('count(*) as count'))
             ->groupBy('divisions.name')

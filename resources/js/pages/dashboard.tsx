@@ -1,78 +1,13 @@
-import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
-import approvals from '@/routes/approvals';
-import borrowers from '@/routes/borrowers';
-import periods from '@/routes/periods';
-import forms from '@/routes/forms';
-import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, usePage, Link } from '@inertiajs/react';
-import { BarChart3, CheckIcon, FileText, TrendingUp, Users } from 'lucide-react';
-
-// Komponen chart ringan berbasis SVG agar tanpa dependensi tambahan
-function Sparkline({
-    values = [],
-    width = 280,
-    height = 80,
-    color = '#2563eb',
-}: { values: number[]; width?: number; height?: number; color?: string }) {
-    const count = values.length;
-    const denom = Math.max(1, count - 1);
-    const max = Math.max(1, ...values);
-    const points = values
-        .map((v, i) => {
-            const x = (i / denom) * width;
-            const y = height - (Math.max(0, v) / max) * height;
-            return `${x},${y}`;
-        })
-        .join(' ');
-
-    if (count <= 1) {
-        return (
-            <div className="text-xs text-muted-foreground">
-                Data tren belum tersedia
-            </div>
-        );
-    }
-
-    return (
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="text-primary">
-            <polyline points={points} fill="none" stroke={color} strokeWidth={2} />
-        </svg>
-    );
-}
-
-function HorizontalBars({
-    data,
-    barClass = 'bg-emerald-600',
-}: {
-    data: { label: string; value: number }[];
-    barClass?: string;
-}) {
-    if (!Array.isArray(data) || data.length === 0) {
-        return <div className="text-xs text-muted-foreground">Distribusi belum tersedia</div>;
-    }
-    const max = Math.max(1, ...data.map((d) => Number(d.value) || 0));
-    return (
-        <div className="space-y-3">
-            {data.map((d) => {
-                const val = Number(d.value) || 0;
-                const pct = Math.round((val / max) * 100);
-                return (
-                    <div key={d.label} className="flex items-center gap-3">
-                        <span className="w-36 text-sm text-muted-foreground">{d.label}</span>
-                        <div className="relative h-2 flex-1 rounded bg-muted">
-                            <div className={`absolute inset-y-0 left-0 rounded ${barClass}`} style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="w-10 text-xs tabular-nums text-foreground text-right">{val}</span>
-                    </div>
-                );
-            })}
-        </div>
-    );
-}
+import { BreadcrumbItem } from '@/types';
+import { Head, router, usePage } from '@inertiajs/react';
+import { BarChart3Icon, CheckCircleIcon, ClockIcon, ListChecksIcon, SearchIcon, ShieldAlertIcon, UsersIcon } from 'lucide-react';
+import { useMemo } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -82,234 +17,224 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Dashboard() {
-    const page = usePage<SharedData & { dashboardData?: any }>();
+    const page = usePage<{ dashboardData: any }>();
     const data = page.props.dashboardData ?? {};
-    const title = data.title ?? 'Dashboard';
-    const description = data.description ?? 'Pantau metrik dan aktivitas secara real-time';
-    const stats: Record<string, number | string> = data.stats ?? {};
-    const actionable: Record<string, number> = data.actionable_items ?? {};
-    const quickActions: Record<string, boolean> = data.quick_actions ?? {};
-    const charts: Record<string, any> = data.charts ?? {};
+    const role: string = data.role ?? 'default';
 
-    // Deteksi role pengguna (selaras dengan sidebar & halaman lain)
-    const roles = new Set([
-        ...(page.props.auth.user.roles?.map((r) => r.name) ?? []),
-        page.props.auth.user.role?.name,
-    ].filter(Boolean) as string[]);
-    const isAdmin = roles.has('admin');
-    const isRM = roles.has('relationship_manager');
-    const isRiskAnalyst = roles.has('risk_analyst');
-    const isKadeptBisnis = roles.has('kadept_bisnis');
-    const isKadeptRisk = roles.has('kadept_risk');
+    const topStats = useMemo(() => {
+        if (role === 'admin') {
+            return [
+                { label: 'Terkirim', value: data.stats?.sent ?? 0, icon: BarChart3Icon, percent: 78 },
+                { label: 'Menunggu Review', value: data.stats?.waiting_review ?? 0, icon: ClockIcon, percent: 60 },
+                { label: 'Direview', value: data.stats?.reviewed ?? 0, icon: CheckCircleIcon, percent: 75 },
+                { label: 'Tervalidasi', value: data.stats?.validated ?? 0, icon: CheckCircleIcon, percent: 92 },
+            ];
+        }
+        if (role === 'risk_analyst') {
+            return [
+                { label: 'Menunggu Persetujuan', value: data.stats?.pending_approvals ?? 0, icon: ClockIcon, percent: 60 },
+                { label: 'Disetujui Bulan Ini', value: data.stats?.approved_this_month ?? 0, icon: CheckCircleIcon, percent: 75 },
+                { label: 'Watchlist', value: data.stats?.watchlist_items ?? 0, icon: ShieldAlertIcon, percent: 30 },
+                { label: 'Tugas Aksi', value: data.stats?.action_items ?? 0, icon: ListChecksIcon, percent: 80 },
+            ];
+        }
+        if (role === 'relationship_manager') {
+            return [
+                { label: 'Laporan Saya', value: data.stats?.my_reports ?? 0, icon: BarChart3Icon, percent: 70 },
+                { label: 'Nasabah Saya', value: data.stats?.my_borrowers ?? 0, icon: UsersIcon, percent: 50 },
+                { label: 'Tertunda', value: data.stats?.pending_reports ?? 0, icon: ClockIcon, percent: 40 },
+                { label: 'Disetujui', value: data.stats?.approved_reports ?? 0, icon: CheckCircleIcon, percent: 80 },
+            ];
+        }
+        if (role === 'kadept_bisnis') {
+            return [
+                { label: 'Persetujuan Tertunda', value: data.stats?.pending_approvals ?? 0, icon: ClockIcon, percent: 60 },
+                { label: 'Laporan Divisi', value: data.stats?.division_reports ?? 0, icon: BarChart3Icon, percent: 70 },
+                { label: 'Kinerja Tim', value: data.stats?.team_performance?.reports_completed ?? 0, icon: UsersIcon, percent: 80 },
+                { label: 'Pertumbuhan Bisnis', value: data.stats?.business_growth?.new_borrowers_this_month ?? 0, icon: ListChecksIcon, percent: 30 },
+            ];
+        }
+        if (role === 'kadept_risk') {
+            return [
+                { label: 'Persetujuan Final', value: data.stats?.pending_final_approvals ?? 0, icon: ClockIcon, percent: 50 },
+                { label: 'Portofolio Risiko', value: data.stats?.risk_portfolio?.total_exposure ?? 0, icon: ShieldAlertIcon, percent: 80 },
+                { label: 'Skor Kepatuhan', value: data.stats?.compliance_score ?? 0, icon: CheckCircleIcon, percent: 92 },
+                { label: 'Mitigasi', value: data.stats?.risk_mitigation?.active_mitigations ?? 0, icon: ListChecksIcon, percent: 60 },
+            ];
+        }
+        return [
+            { label: 'Laporan', value: data.stats?.total_reports ?? 0, icon: BarChart3Icon, percent: 70 },
+            { label: 'Nasabah', value: data.stats?.total_borrowers ?? 0, icon: UsersIcon, percent: 40 },
+        ];
+    }, [role, data]);
 
-    // Normalisasi data charts dari backend (tanpa dummy fallback)
-    const monthlyTrendRaw: any[] = Array.isArray(charts.monthly_report_trend)
-        ? charts.monthly_report_trend
-        : Array.isArray(charts.approval_trend)
-        ? charts.approval_trend
-        : [];
-    const monthlySeries: number[] = monthlyTrendRaw.map((it: any) => Number(it?.count) || 0);
+    const chartSeries = useMemo(() => {
+        if (role === 'admin') return data.charts?.monthly_report_trend ?? [];
+        if (role === 'risk_analyst') return data.charts?.approval_trend ?? [];
+        if (role === 'relationship_manager') return data.charts?.my_reports_status ?? [];
+        return [];
+    }, [role, data]);
 
-    const classificationRaw = charts.risk_classification_distribution ?? {};
-    const classificationData: { label: string; value: number }[] = Object.keys(classificationRaw).length > 0
-        ? Object.entries(classificationRaw).map(([k, v]) => {
-            const key = String(k).toLowerCase();
-            const label = key === '1' || key === 'safe' ? 'Aman'
-                : key === '0' || key === 'watchlist' ? 'Watchlist'
-                : 'Lainnya';
-            return { label, value: Number(v) || 0 };
-        })
-        : [];
+    const divisionSummary = useMemo(() => {
+        if (role === 'admin') return data.charts?.watchlist_by_division ?? data.charts?.reports_by_division ?? {};
+        if (role === 'kadept_bisnis' || role === 'kadept_risk') return data.team_overview ?? [];
+        return {};
+    }, [role, data]);
 
-    const statusRaw = charts.reports_by_status ?? {};
-    const statusData: { label: string; value: number }[] = Object.keys(statusRaw).length > 0
-        ? Object.entries(statusRaw).map(([k, v]) => ({ label: String(k), value: Number(v) || 0 }))
-        : [];
+    const tableRows = useMemo(() => {
+        if (role === 'risk_analyst') return data.pending_approvals_list ?? [];
+        if (role === 'relationship_manager') return data.recent_reports ?? [];
+        if (role === 'admin') return data.recent_activities ?? [];
+        return [];
+    }, [role, data]);
 
-    const pipelineRaw = charts.approval_pipeline ?? {};
-    const pipelineData = [
-        { label: 'Menunggu', value: Number(pipelineRaw.pending ?? 0) },
-        { label: 'Disetujui', value: Number(pipelineRaw.approved ?? 0) },
-        { label: 'Ditolak', value: Number(pipelineRaw.rejected ?? 0) },
-    ];
+    function SimpleBar({ items }: { items: { x: string; y: number }[] }) {
+        const max = Math.max(1, ...items.map((i) => i.y ?? 0));
+        return (
+            <div className="h-40 w-full">
+                <div className="grid h-full w-full grid-cols-12 items-end gap-2">
+                    {items.map((i, idx) => (
+                        <div key={idx} className="flex flex-col items-center">
+                            <div className="w-full rounded-sm bg-primary/80" style={{ height: `${(i.y / max) * 90}%` }} />
+                            <span className="mt-1 text-xs text-muted-foreground">{i.x}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    const normalizedBarItems = useMemo(() => {
+        if (Array.isArray(chartSeries)) {
+            if (chartSeries.length && chartSeries[0]?.period && chartSeries[0]?.count !== undefined) {
+                return chartSeries.map((d: any) => ({ x: d.period, y: Number(d.count) || 0 }));
+            }
+            return Object.entries(chartSeries).map(([k, v]) => ({ x: String(k), y: Number(v as any) || 0 }));
+        }
+        return [];
+    }, [chartSeries]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={title} />
-            <div className="min-h-screen bg-background">
-                <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto p-6">
-                    {/* Header Section */}
-                    <div className="mb-8 space-y-4 text-center">
-                        <div className="mb-4 flex items-center justify-center">
-                            <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-3 shadow-lg shadow-blue-500/25">
-                                <BarChart3 className="h-8 w-8 text-white" />
-                            </div>
+            <Head title="Dashboard" />
+            <div className="min-h-screen max-w-3xl bg-background px-4 py-6 sm:px-6 md:py-12 lg:max-w-7xl lg:px-8">
+                <div className="flex items-center justify-between px-2 sm:px-0">
+                    <h1 className="text-xl font-semibold">Panel Manajemen</h1>
+                    <div className="flex items-center gap-2">
+                        <div className="relative w-64">
+                            <Input placeholder="Cari" className="pl-9" />
+                            <SearchIcon className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
                         </div>
-                        <h1 className="text-3xl font-bold text-foreground">
-                            {title}
-                        </h1>
-                        <p className="mx-auto max-w-2xl text-muted-foreground">
-                            {description}
-                        </p>
-                    </div>
-
-                    {/* Stats Cards: nilai inti tanpa sparkline dummy */}
-                    <div className="mb-6 grid auto-rows-min gap-6 sm:grid-cols-2 md:grid-cols-3">
-                        {Object.entries(stats).map(([label, value], idx) => (
-                            <Card key={label} className="relative overflow-hidden">
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center gap-3">
-                                        <div className="rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 p-2">
-                                            {idx % 3 === 0 && <Users className="h-5 w-5 text-white" />}
-                                            {idx % 3 === 1 && <TrendingUp className="h-5 w-5 text-white" />}
-                                            {idx % 3 === 2 && <FileText className="h-5 w-5 text-white" />}
-                                        </div>
-                                        <h3 className="font-semibold text-foreground">
-                                            {label.replaceAll('_', ' ')}
-                                        </h3>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="pt-0">
-                                    <p className="text-3xl font-bold text-foreground tabular-nums">
-                                        {String(value)}
-                                    </p>
-                                </CardContent>
-                                <PlaceholderPattern className="absolute inset-0 size-full stroke-emerald-500/10 dark:stroke-emerald-400/10" />
-                            </Card>
-                        ))}
-                    </div>
-
-                    {/* Insights: chart ringan, berbeda sesuai role (metrics dari backend, fallback aman) */}
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <Card>
-                            <CardHeader className="pb-0">
-                                <CardTitle className="flex items-center gap-2">
-                                    <BarChart3 className="h-5 w-5 text-primary" /> Tren Laporan Bulanan
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-4">
-                                {monthlySeries.length > 1 ? (
-                                    <div className="flex items-end justify-between">
-                                        <Sparkline values={monthlySeries} />
-                                        <Badge variant="secondary" className="ml-4">
-                                            Terakhir: {monthlySeries.at(-1)}
-                                        </Badge>
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">Data tren belum tersedia</div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="pb-0">
-                                <CardTitle className="flex items-center gap-2">
-                                    <TrendingUp className="h-5 w-5 text-primary" /> {classificationData.length > 0 ? 'Distribusi Klasifikasi' : 'Status Laporan'}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-4">
-                                {classificationData.length > 0 ? (
-                                    <HorizontalBars data={classificationData} barClass="bg-indigo-600" />
-                                ) : statusData.length > 0 ? (
-                                    <HorizontalBars data={statusData} barClass="bg-indigo-600" />
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">Distribusi belum tersedia</div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {(isAdmin || isRiskAnalyst || isKadeptBisnis || isKadeptRisk) && (
-                        <Card className="mt-6">
-                            <CardHeader className="pb-0">
-                                <CardTitle className="flex items-center gap-2">
-                                    <CheckIcon className="h-5 w-5 text-primary" /> Pipeline Persetujuan
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="pt-4">
-                                {pipelineData.some((d) => d.value > 0) ? (
-                                    <HorizontalBars data={pipelineData} barClass="bg-emerald-600" />
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">Data pipeline belum tersedia</div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
-
-                    {/* Badge role ringkas agar pengguna paham konteks */}
-                    <div className="mt-6 flex flex-wrap gap-2">
-                        {isAdmin && <Badge variant="outline">Admin: Akses penuh</Badge>}
-                        {isRM && <Badge variant="secondary">RM: Fokus debitur & laporan</Badge>}
-                        {isRiskAnalyst && <Badge variant="secondary">Risk Analyst: Review & Watchlist</Badge>}
-                        {isKadeptBisnis && <Badge variant="secondary">KADEPT Bisnis: Approval level 3</Badge>}
-                        {isKadeptRisk && <Badge variant="secondary">KADEPT Risk: Approval level 4</Badge>}
-                    </div>
-
-                    {/* Actionable Items & Quick Actions */}
-                    {(Object.keys(actionable).length > 0 || Object.keys(quickActions).length > 0) && (
-                        <div className="grid gap-6 md:grid-cols-2">
-                            {/* Actionable Items */}
-                            {Object.keys(actionable).length > 0 && (
-                                <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm">
-                                    <h2 className="mb-4 text-lg font-semibold text-foreground">Prioritas</h2>
-                                    <ul className="space-y-2 text-foreground">
-                                        {Object.entries(actionable).map(([k, v]) => (
-                                            <li key={k} className="flex items-center justify-between">
-                                                <span>{k.replaceAll('_', ' ')}</span>
-                                                <span className="rounded bg-secondary px-2 py-0.5 text-sm font-semibold text-secondary-foreground">
-                                                    {v}
-                                                </span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Quick Actions */}
-                            {Object.keys(quickActions).length > 0 && (
-                                <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm">
-                                    <h2 className="mb-4 text-lg font-semibold text-foreground">Aksi Cepat</h2>
-                                    <div className="flex flex-wrap gap-2">
-                                        {quickActions.create_report && (
-                                            <Link href={forms.index().url} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-white hover:bg-blue-700">
-                                                <FileText className="h-4 w-4" /> Buat Laporan
-                                            </Link>
-                                        )}
-                                        {quickActions.view_borrowers && (
-                                            <Link href={borrowers.index().url} className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 text-white hover:bg-slate-900">
-                                                <Users className="h-4 w-4" /> Lihat Debitur
-                                            </Link>
-                                        )}
-                                        {quickActions.check_periods && (
-                                            <Link href={periods.index().url} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-700">
-                                                <TrendingUp className="h-4 w-4" /> Periode Aktif
-                                            </Link>
-                                        )}
-                                        {quickActions.review_reports && (
-                                            <Link href={approvals.index().url} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700">
-                                                <FileText className="h-4 w-4" /> Review Laporan
-                                            </Link>
-                                        )}
-                                        {quickActions.approve_reports && (
-                                            <Link href={approvals.index().url} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-1.5 text-white hover:bg-emerald-700">
-                                                <CheckIcon className="h-4 w-4" /> Approve Laporan
-                                            </Link>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Main Content Placeholder */}
-                    <div className="relative min-h-[40vh] flex-1 overflow-hidden rounded-2xl border border-border bg-card p-8 shadow-sm">
-                        <div className="space-y-4 text-center">
-                            <h2 className="text-xl font-semibold text-foreground">Analitik Utama</h2>
-                            <p className="text-muted-foreground">Grafik dan tabel spesifik akan ditampilkan sesuai role.</p>
-                        </div>
-                        <PlaceholderPattern className="absolute inset-0 size-full stroke-slate-500/10 dark:stroke-slate-400/10" />
+                        <Button variant="ghost" size="sm" onClick={() => router.reload({ only: ['dashboardData'] })}>
+                            Segarkan
+                        </Button>
                     </div>
                 </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {topStats.map((s, idx) => (
+                        <Card key={idx} className="">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <s.icon className="h-4 w-4" />
+                                    {s.label}
+                                </CardTitle>
+                                <CardDescription>
+                                    <div className="mt-2 flex items-center justify-between">
+                                        <span className="text-2xl font-semibold">{s.value}</span>
+                                        <span className="text-xs text-muted-foreground">{s.percent}%</span>
+                                    </div>
+                                    <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
+                                        <div className="h-full bg-primary" style={{ width: `${Math.min(100, s.percent)}%` }} />
+                                    </div>
+                                </CardDescription>
+                            </CardHeader>
+                        </Card>
+                    ))}
+                </div>
+
+                <div className="mt-6 grid gap-4 lg:grid-cols-12">
+                    <Card className="lg:col-span-8">
+                        <CardHeader>
+                            <CardTitle>Evolusi</CardTitle>
+                            <CardDescription>Tahun Ini</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <SimpleBar items={normalizedBarItems} />
+                        </CardContent>
+                    </Card>
+
+                    <Card className="lg:col-span-4">
+                        <CardHeader>
+                            <CardTitle>Departemen</CardTitle>
+                            <CardDescription>Ringkasan per divisi</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                {Array.isArray(divisionSummary)
+                                    ? divisionSummary.map((d: any, i: number) => (
+                                          <div key={i} className="rounded-md border p-3">
+                                              <div className="flex items-center justify-between">
+                                                  <span className="font-medium">{d.role ?? d.name ?? 'Peran'}</span>
+                                                  <span className="text-sm text-muted-foreground">{d.count ?? 0}</span>
+                                              </div>
+                                              <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
+                                                  <div
+                                                      className="h-full bg-primary"
+                                                      style={{ width: `${Math.min(100, ((d.count ?? 0) / (topStats[0]?.value || 1)) * 100)}%` }}
+                                                  />
+                                              </div>
+                                          </div>
+                                      ))
+                                    : Object.entries(divisionSummary).map(([name, count], i) => (
+                                          <div key={i} className="rounded-md border p-3">
+                                              <div className="flex items-center justify-between">
+                                                  <span className="font-medium">{name}</span>
+                                                  <span className="text-sm text-muted-foreground">{Number(count) || 0}</span>
+                                              </div>
+                                              <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
+                                                  <div
+                                                      className="h-full bg-primary"
+                                                      style={{ width: `${Math.min(100, ((Number(count) || 0) / (topStats[0]?.value || 1)) * 100)}%` }}
+                                                  />
+                                              </div>
+                                          </div>
+                                      ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <Card className="mt-6">
+                    <CardHeader>
+                        <CardTitle>Klien</CardTitle>
+                        <CardDescription>Item terbaru</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Perusahaan</TableHead>
+                                        <TableHead>Departemen</TableHead>
+                                        <TableHead>Periode</TableHead>
+                                        <TableHead>Status</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {tableRows.map((r: any, idx: number) => (
+                                        <TableRow key={idx}>
+                                            <TableCell>{r?.report?.borrower?.name ?? r?.borrower?.name ?? r?.description ?? '-'}</TableCell>
+                                            <TableCell>{r?.report?.borrower?.division?.name ?? r?.borrower?.division?.name ?? '-'}</TableCell>
+                                            <TableCell>{r?.report?.period?.name ?? r?.period?.name ?? '-'}</TableCell>
+                                            <TableCell>{r?.report?.status ?? r?.status ?? '-'}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </AppLayout>
     );

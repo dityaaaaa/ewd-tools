@@ -19,7 +19,7 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::post('periods/{period}/start', [PeriodController::class, 'start'])->name('periods.start');
@@ -33,51 +33,51 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::resource('divisions', DivisionController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->names('divisions');
 
 Route::resource('users', UserController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->names('users');
 
 Route::resource('borrowers', BorrowerController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->names('borrowers');
 
 Route::resource('aspects', AspectController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->names('aspects');
 
 Route::resource('templates', TemplateController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->names('templates');
 
 Route::resource('periods', PeriodController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->names('periods');
 
 Route::resource('reports', ReportController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->names('reports');
 
 Route::get('reports/{report}/export-pdf', [ReportController::class, 'exportPdf'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->name('reports.exportPdf');
 
 Route::get('approvals', [ApprovalController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->name('approvals.index');
 
 Route::post('approvals/{approval}/approve', [ApprovalController::class, 'approve'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->name('approvals.approve');
 
 Route::post('approvals/{approval}/reject', [ApprovalController::class, 'reject'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->name('approvals.reject');
 
 Route::get('admin/audits', [AuditController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth'])
     ->name('audits.index');
 
 require __DIR__.'/settings.php';

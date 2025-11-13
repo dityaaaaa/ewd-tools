@@ -1,6 +1,6 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
 import approvals from '@/routes/approvals';
 import aspects from '@/routes/aspects';
@@ -26,21 +26,15 @@ import {
     PlusCircleIcon,
     UserIcon,
 } from 'lucide-react';
-import AppLogo from './app-logo';
 import { Button } from './ui/button';
 
 function buildNavItemsByRole(page: SharedData): NavItem[] {
     const roles = new Set([...(page.auth.user.roles?.map((r) => r.name) ?? []), page.auth.user.role?.name].filter(Boolean) as string[]);
 
     const isAdmin = roles.has('admin');
-    const isRM = roles.has('relationship_manager');
-    const isRiskAnalyst = roles.has('risk_analyst');
-    const isKadeptBisnis = roles.has('kadept_bisnis');
-    const isKadeptRisk = roles.has('kadept_risk');
 
     const items: NavItem[] = [{ title: 'Dashboard', href: dashboard().url, icon: LayoutGrid }];
 
-    // Management menus: admin only
     if (isAdmin) {
         items.push({ title: 'User', href: users.index().url, icon: UserIcon });
         items.push({ title: 'Divisi', href: divisions.index().url, icon: BuildingIcon });
@@ -50,34 +44,12 @@ function buildNavItemsByRole(page: SharedData): NavItem[] {
         items.push({ title: 'Audit Logs', href: audits.index().url, icon: ClipboardListIcon });
     }
 
-    // Operational menus
-    if (isAdmin || isRM) {
-        items.push({ title: 'Debitur', href: borrowers.index().url, icon: FolderIcon });
-    }
-
-    if (isAdmin || isRM || isRiskAnalyst) {
-        items.push({ title: 'Laporan', href: reports.index().url, icon: PaperclipIcon });
-    }
-
-    if (isAdmin || isRiskAnalyst || isKadeptBisnis || isKadeptRisk) {
-        items.push({ title: 'Persetujuan', href: approvals.index().url, icon: CheckCircleIcon });
-    }
+    items.push({ title: 'Debitur', href: borrowers.index().url, icon: FolderIcon });
+    items.push({ title: 'Laporan', href: reports.index().url, icon: PaperclipIcon });
+    items.push({ title: 'Persetujuan', href: approvals.index().url, icon: CheckCircleIcon });
 
     return items;
 }
-
-// const footerNavItems: NavItem[] = [
-//     {
-//         title: 'Repository',
-//         href: 'https://github.com/laravel/react-starter-kit',
-//         icon: Folder,
-//     },
-//     {
-//         title: 'Documentation',
-//         href: 'https://laravel.com/docs/starter-kits#react',
-//         icon: BookOpen,
-//     },
-// ];
 
 export function AppSidebar() {
     const page = usePage<SharedData>();
@@ -87,17 +59,7 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard().url} prefetch>
-                                <AppLogo />
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarHeader>
+            <SidebarHeader></SidebarHeader>
 
             <SidebarContent>
                 {isRMOnly && (
@@ -114,7 +76,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                {/* <NavFooter items={footerNavItems} className="mt-auto" /> */}
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
