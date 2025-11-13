@@ -5,8 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
-import { BarChart3Icon, ClockIcon, ShieldAlertIcon, UsersIcon } from 'lucide-react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -16,39 +15,86 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Dashboard() {
-    const page = usePage<{ dashboardData: any }>();
-    const initialDataRef = useRef<any>(page.props.dashboardData ?? {});
-    const data = initialDataRef.current;
-    const role: string = data.role ?? 'default';
-
+const CountdownTimer = memo(function CountdownTimer({ endDate }: { endDate: string | Date | null }) {
     const [currentTime, setCurrentTime] = useState(new Date());
+
     useEffect(() => {
         const t = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(t);
-    }, []);
+    });
 
     const remainingTime = useMemo(() => {
-        const endDateStr = data.stats?.period_end_date;
-        if (!endDateStr && typeof data.stats?.period_days_left !== 'number') return { status: 'no_period', message: 'Tidak ada periode' };
-        const end = endDateStr ? new Date(endDateStr) : new Date(currentTime.getTime() + (data.stats?.period_days_left ?? 0) * 24 * 60 * 60 * 1000);
-        const diff = end.getTime() - currentTime.getTime();
-        if (diff <= 0) return { status: 'expired', message: 'Periode telah selesai' };
+        if (!endDate) {
+            return { status: 'no_period', message: 'Tidak ada periode' };
+        }
+
+        const end = new Date(endDate);
+        const endTime = end.getTime();
+
+        if (Number.isNaN(endTime)) {
+            return { status: 'no_period', message: 'Tidak ada periode' };
+        }
+
+        const diff = endTime - currentTime.getTime();
+
+        if (diff <= 0) {
+            return { status: 'expired', message: 'Periode telah selesai' };
+        }
+
         const s = Math.floor(diff / 1000);
         const m = Math.floor(s / 60);
         const h = Math.floor(m / 60);
         const d = Math.floor(h / 24);
+
         return { status: 'active', days: d, hours: h % 24, minutes: m % 60, seconds: s % 60 };
-    }, [data.stats?.period_end_date, data.stats?.period_days_left, currentTime]);
+    }, [endDate, currentTime]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Countdown</CardTitle>
+                <CardDescription>
+                    {remainingTime.status === 'active' ? (
+                        <div className="flex items-end gap-2 sm:gap-4">
+                            {[
+                                { label: 'Hari', value: remainingTime.days },
+                                { label: 'Jam', value: remainingTime.hours },
+                                { label: 'Menit', value: remainingTime.minutes },
+                                { label: 'Detik', value: remainingTime.seconds },
+                            ].map((t) => (
+                                <div key={t.label} className="flex w-full flex-col items-center">
+                                    <div className="font-mono text-3xl font-semibold md:text-3xl">{String(t.value).padStart(2, '0')}</div>
+                                    <div className="text-[10px] text-muted-foreground uppercase">{t.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex h-16 items-center justify-center text-sm font-medium">{remainingTime.message ?? '-'}</div>
+                    )}
+                </CardDescription>
+            </CardHeader>
+        </Card>
+    );
+});
+
+export default function Dashboard() {
+    const page = usePage<{ dashboardData: any }>();
+    const data = page.props.dashboardData ?? {};
+
+    console.log(data);
 
     const otherStats = useMemo(() => {
-        const borrowersTotal = Object.values(data.charts?.borrowers_by_division ?? {}).reduce((a: number, b: any) => a + Number(b ?? 0), 0);
+        const borrowersByDivision = data.charts?.borrowers_by_division ?? {};
+        const borrowersTotal = Object.values(borrowersByDivision).reduce((acc: number, v) => acc + (Number(v) || 0), 0);
+        const watchlistTotal = Number(data.stats?.watchlist_total ?? 0);
+        const reportsTotal = Number(data.stats?.reports_total ?? 0);
+
         return [
-            { label: 'Watchlist Keseluruhan', value: data.stats?.watchlist_total ?? 0, icon: ShieldAlertIcon, percent: 100, showPercent: true },
-            { label: 'Laporan Keseluruhan', value: data.stats?.reports_total ?? 0, icon: BarChart3Icon, percent: 100, showPercent: true },
-            { label: 'Debitur Keseluruhan', value: borrowersTotal, icon: UsersIcon, percent: 100, showPercent: true },
+            { label: 'Total Watchlist', value: watchlistTotal },
+            { label: 'Total Laporan', value: reportsTotal },
+            { label: 'Total Debitur', value: borrowersTotal },
         ];
-    }, [data]);
+    }, [data.charts?.borrowers_by_division, data.stats?.watchlist_total, data.stats?.reports_total]);
 
     const comparisonData = useMemo(() => {
         const reports = data.charts?.reports_by_division ?? {};
@@ -62,53 +108,15 @@ export default function Dashboard() {
         });
     }, [data]);
 
-    const divisionSummary = useMemo(() => {
-        if (role === 'admin') return data.charts?.watchlist_by_division ?? data.charts?.reports_by_division ?? {};
-        if (role === 'kadept_bisnis' || role === 'kadept_risk') return data.team_overview ?? [];
-        return {};
-    }, [role, data]);
-
-    const tableRows = useMemo(() => {
-        if (role === 'risk_analyst') return data.pending_approvals_list ?? [];
-        if (role === 'relationship_manager') return data.recent_reports ?? [];
-        if (role === 'admin') return data.recent_activities ?? [];
-        return [];
-    }, [role, data]);
-
-    function StatCard({
-        icon: Icon,
-        label,
-        value,
-        percent = 100,
-        showPercent = true,
-    }: {
-        icon: any;
-        label: string;
-        value: number | string;
-        percent?: number;
-        showPercent?: boolean;
-    }) {
+    function StatCard({ label, value }: { label: string; value: number | string }) {
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Icon className="h-4 w-4" />
-                        {label}
-                    </CardTitle>
+                    <CardTitle className="flex items-center gap-2">{label}</CardTitle>
                     <CardDescription>
                         <div className="mt-2 flex items-center justify-between">
-                            <span className="text-2xl font-semibold">{value}</span>
-                            {showPercent && (
-                                <span className="rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
-                                    {Math.min(100, percent)}%
-                                </span>
-                            )}
+                            <span className="text-4xl font-semibold">{value}</span>
                         </div>
-                        {showPercent && (
-                            <div className="mt-2 h-2 w-full overflow-hidden rounded bg-muted">
-                                <div className="h-full bg-primary" style={{ width: `${Math.min(100, percent)}%` }} />
-                            </div>
-                        )}
                     </CardDescription>
                 </CardHeader>
             </Card>
@@ -160,35 +168,9 @@ export default function Dashboard() {
             <Head title="Dashboard" />
             <div className="min-h-screen max-w-3xl bg-background px-4 py-6 sm:px-6 md:py-12 lg:max-w-7xl lg:px-8">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <ClockIcon className="h-4 w-4" />
-                                Countdown
-                            </CardTitle>
-                            <CardDescription>
-                                {remainingTime.status === 'active' ? (
-                                    <div className="mt-2 flex items-end gap-4">
-                                        {[
-                                            { label: 'Hari', value: remainingTime.days },
-                                            { label: 'Jam', value: remainingTime.hours },
-                                            { label: 'Menit', value: remainingTime.minutes },
-                                            { label: 'Detik', value: remainingTime.seconds },
-                                        ].map((t) => (
-                                            <div key={t.label} className="flex w-full flex-col items-center">
-                                                <div className="font-mono text-2xl font-semibold md:text-3xl">{t.value}</div>
-                                                <div className="text-[10px] text-muted-foreground uppercase">{t.label}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="mt-2 text-sm">{(remainingTime as any).message ?? '-'}</div>
-                                )}
-                            </CardDescription>
-                        </CardHeader>
-                    </Card>
+                    <CountdownTimer endDate={data.stats.period_end_date} />
                     {otherStats.map((s, idx) => (
-                        <StatCard key={idx} icon={s.icon} label={s.label} value={s.value} percent={s.percent} showPercent={s.showPercent} />
+                        <StatCard key={idx} label={s.label} value={s.value} />
                     ))}
                 </div>
 
@@ -201,12 +183,6 @@ export default function Dashboard() {
                         <CardContent>
                             <GroupedBar items={comparisonData} />
                         </CardContent>
-                        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
-                            <div className="flex gap-2 leading-none font-medium">
-                                Tren positif bulan ini <TrendingUp className="h-4 w-4" />
-                            </div>
-                            <div className="leading-none text-muted-foreground">Ringkasan komparatif per divisi</div>
-                        </CardFooter> */}
                     </Card>
 
                     <Card className="lg:col-span-4">
@@ -214,7 +190,7 @@ export default function Dashboard() {
                             <CardTitle>Kelengkapan</CardTitle>
                             <CardDescription>Persentase per divisi</CardDescription>
                         </CardHeader>
-                        <CardContent className="h-80 overflow-y-auto">
+                        <CardContent className="h-96 overflow-y-auto">
                             <div className="space-y-3">
                                 {completeness.map((d, i) => (
                                     <div key={i} className="rounded-md border p-3">

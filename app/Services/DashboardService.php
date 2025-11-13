@@ -22,7 +22,7 @@ class DashboardService extends BaseService
     public function getDashboardData(User $user): array
     {
         $userRole = $user->getRoleNames()->first();
-        
+
         return match ($userRole) {
             'admin' => $this->getAdminDashboard($user),
             'relationship_manager' => $this->getRelationshipManagerDashboard($user),
@@ -36,9 +36,6 @@ class DashboardService extends BaseService
     protected function getAdminDashboard(User $user): array
     {
         return [
-            'role' => 'admin',
-            'title' => 'Admin Dashboard',
-            'description' => 'Kelola sistem secara menyeluruh dan pantau aktivitas semua pengguna',
             'stats' => array_merge([
                 'total_users' => User::count(),
                 'total_reports' => Report::count(),
@@ -246,18 +243,18 @@ class DashboardService extends BaseService
     {
         return Report::join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
             ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
-            ->select('divisions.name', DB::raw('count(*) as count'))
-            ->groupBy('divisions.name')
-            ->pluck('count', 'name')
+            ->select('divisions.code', DB::raw('count(*) as count'))
+            ->groupBy('divisions.code')
+            ->pluck('count', 'code')
             ->toArray();
     }
 
     protected function getBorrowersByDivision(): array
     {
         return Borrower::join('divisions', 'borrowers.division_id', '=', 'divisions.id')
-            ->select('divisions.name', DB::raw('count(*) as count'))
-            ->groupBy('divisions.name')
-            ->pluck('count', 'name')
+            ->select('divisions.code', DB::raw('count(*) as count'))
+            ->groupBy('divisions.code')
+            ->pluck('count', 'code')
             ->toArray();
     }
 
@@ -266,9 +263,9 @@ class DashboardService extends BaseService
         return Watchlist::join('reports', 'watchlists.report_id', '=', 'reports.id')
             ->join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
             ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
-            ->select('divisions.name', DB::raw('count(*) as count'))
-            ->groupBy('divisions.name')
-            ->pluck('count', 'name')
+            ->select('divisions.code', DB::raw('count(*) as count'))
+            ->groupBy('divisions.code')
+            ->pluck('count', 'code')
             ->toArray();
     }
 
@@ -321,8 +318,11 @@ class DashboardService extends BaseService
 
     protected function getGlobalStats(): array
     {
-        $active = Period::active()->latest()->first();
-        $endDate = $active ? $active->end_date : null;
+        $latest = Period::active()->latest('start_date')->first();
+        if (!$latest) {
+            $latest = Period::orderByDesc('start_date')->first();
+        }
+        $endDate = $latest ? $latest->end_date : null;
         $daysLeft = $endDate ? (Carbon::parse($endDate)->isFuture() ? Carbon::now()->diffInDays(Carbon::parse($endDate)) : 0) : 0;
 
         return [
