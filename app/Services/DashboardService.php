@@ -377,9 +377,8 @@ class DashboardService extends BaseService
     protected function getIncomingReports(): array
     {
         return Report::with(['borrower.division', 'period', 'creator'])
-            ->where('status', ReportStatus::SUBMITTED->value)
             ->latest()
-            ->limit(25)
+            ->limit(10)
             ->get()
             ->toArray();
     }
