@@ -1,14 +1,12 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
-import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
-import { BarChart3Icon, ClockIcon, SearchIcon, ShieldAlertIcon, TrendingUp, UsersIcon } from 'lucide-react';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { Head, usePage } from '@inertiajs/react';
+import { BarChart3Icon, ClockIcon, ShieldAlertIcon, UsersIcon } from 'lucide-react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, XAxis } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -20,7 +18,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function Dashboard() {
     const page = usePage<{ dashboardData: any }>();
-    const data = page.props.dashboardData ?? {};
+    const initialDataRef = useRef<any>(page.props.dashboardData ?? {});
+    const data = initialDataRef.current;
     const role: string = data.role ?? 'default';
 
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -76,7 +75,19 @@ export default function Dashboard() {
         return [];
     }, [role, data]);
 
-    function StatCard({ icon: Icon, label, value, percent = 100, showPercent = true }: { icon: any; label: string; value: number | string; percent?: number; showPercent?: boolean }) {
+    function StatCard({
+        icon: Icon,
+        label,
+        value,
+        percent = 100,
+        showPercent = true,
+    }: {
+        icon: any;
+        label: string;
+        value: number | string;
+        percent?: number;
+        showPercent?: boolean;
+    }) {
         return (
             <Card>
                 <CardHeader>
@@ -88,7 +99,9 @@ export default function Dashboard() {
                         <div className="mt-2 flex items-center justify-between">
                             <span className="text-2xl font-semibold">{value}</span>
                             {showPercent && (
-                                <span className="rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">{Math.min(100, percent)}%</span>
+                                <span className="rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                                    {Math.min(100, percent)}%
+                                </span>
                             )}
                         </div>
                         {showPercent && (
@@ -102,31 +115,34 @@ export default function Dashboard() {
         );
     }
 
-    const GroupedBar = memo(function GroupedBar({ items }: { items: { name: string; watch: number; safe: number }[] }) {
-        if (!items?.length) {
-            return <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">Tidak ada data untuk ditampilkan</div>;
-        }
-        const chartConfig: ChartConfig = {
-            watch: { label: 'Watchlist', color: 'var(--chart-1)' },
-            safe: { label: 'Aman', color: 'var(--chart-2)' },
-        };
-        return (
-            <div className="h-64 w-full">
-                <ChartContainer config={chartConfig} className="h-full">
-                    <ResponsiveContainer width="100%" height="100%" debounce={300}>
-                        <BarChart data={items} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-                            <CartesianGrid vertical={false} />
-                            <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
-                            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-                            <ChartLegend content={<ChartLegendContent />} />
-                            <Bar dataKey="watch" stackId="a" fill="var(--color-watch)" radius={[0, 0, 4, 4]} isAnimationActive={false} />
-                            <Bar dataKey="safe" stackId="a" fill="var(--color-safe)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ChartContainer>
-            </div>
-        );
-    }, (prev, next) => prev.items === next.items);
+    const GroupedBar = memo(
+        function GroupedBar({ items }: { items: { name: string; watch: number; safe: number }[] }) {
+            if (!items?.length) {
+                return <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">Tidak ada data untuk ditampilkan</div>;
+            }
+            const chartConfig: ChartConfig = {
+                watch: { label: 'Watchlist', color: 'var(--chart-1)' },
+                safe: { label: 'Safe', color: 'var(--chart-2)' },
+            };
+            return (
+                <div className="h-full w-full">
+                    <ChartContainer config={chartConfig} className="h-full">
+                        <ResponsiveContainer width="100%" height="100%" debounce={300}>
+                            <BarChart data={items} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                                <CartesianGrid vertical={false} />
+                                <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
+                                <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                                <ChartLegend content={<ChartLegendContent />} />
+                                <Bar dataKey="watch" stackId="a" fill="var(--color-watch)" radius={[0, 0, 4, 4]} isAnimationActive={false} />
+                                <Bar dataKey="safe" stackId="a" fill="var(--color-safe)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </ChartContainer>
+                </div>
+            );
+        },
+        (prev, next) => prev.items === next.items,
+    );
 
     const completeness = useMemo(() => {
         const borrowers = data.charts?.borrowers_by_division ?? {};
@@ -143,25 +159,12 @@ export default function Dashboard() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
             <div className="min-h-screen max-w-3xl bg-background px-4 py-6 sm:px-6 md:py-12 lg:max-w-7xl lg:px-8">
-                <div className="flex items-center justify-between px-2 sm:px-0">
-                    <h1 className="text-xl font-semibold">Panel Manajemen</h1>
-                    <div className="flex items-center gap-2">
-                        <div className="relative w-64">
-                            <Input placeholder="Cari" className="pl-9" />
-                            <SearchIcon className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => router.reload({ only: ['dashboardData'] })}>
-                            Segarkan
-                        </Button>
-                    </div>
-                </div>
-
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <ClockIcon className="h-4 w-4" />
-                                Sisa Periode
+                                Countdown
                             </CardTitle>
                             <CardDescription>
                                 {remainingTime.status === 'active' ? (
@@ -172,7 +175,7 @@ export default function Dashboard() {
                                             { label: 'Menit', value: remainingTime.minutes },
                                             { label: 'Detik', value: remainingTime.seconds },
                                         ].map((t) => (
-                                            <div key={t.label} className="flex flex-col items-center">
+                                            <div key={t.label} className="flex w-full flex-col items-center">
                                                 <div className="font-mono text-2xl font-semibold md:text-3xl">{t.value}</div>
                                                 <div className="text-[10px] text-muted-foreground uppercase">{t.label}</div>
                                             </div>
@@ -192,18 +195,18 @@ export default function Dashboard() {
                 <div className="mt-6 grid gap-4 lg:grid-cols-12">
                     <Card className="lg:col-span-8">
                         <CardHeader>
-                            <CardTitle>Komparasi Per Divisi</CardTitle>
-                            <CardDescription>Watchlist vs Aman</CardDescription>
+                            <CardTitle>Chart Laporan</CardTitle>
+                            <CardDescription>Perbandingan Klasifikasi Laporan per Divisi</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <GroupedBar items={comparisonData} />
                         </CardContent>
-                        <CardFooter className="flex-col items-start gap-2 text-sm">
+                        {/* <CardFooter className="flex-col items-start gap-2 text-sm">
                             <div className="flex gap-2 leading-none font-medium">
                                 Tren positif bulan ini <TrendingUp className="h-4 w-4" />
                             </div>
                             <div className="leading-none text-muted-foreground">Ringkasan komparatif per divisi</div>
-                        </CardFooter>
+                        </CardFooter> */}
                     </Card>
 
                     <Card className="lg:col-span-4">
