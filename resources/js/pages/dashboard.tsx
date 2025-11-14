@@ -212,7 +212,7 @@ export default function Dashboard() {
     }
 
     const GroupedBar = memo(
-        function GroupedBar({ items }: { items: { name: string; watch: number; safe: number }[] }) {
+        function GroupedBar({ items }: { items: { name: string; watch: number; safe: number; total?: number }[] }) {
             if (!items?.length) {
                 return <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">Tidak ada data untuk ditampilkan</div>;
             }
@@ -224,7 +224,7 @@ export default function Dashboard() {
                 <div className="h-full w-full">
                     <ChartContainer config={chartConfig} className="h-full">
                         <ResponsiveContainer width="100%" height="100%" debounce={300}>
-                            <BarChart data={items} margin={{ top: 24, right: 16, left: 8, bottom: 8 }}>
+                            <BarChart data={items} margin={{ top: 24, right: 16, left: 8, bottom: 8 }} barSize={28} barGap={8} barCategoryGap="40%">
                                 <CartesianGrid vertical={false} />
                                 <XAxis dataKey="name" tickLine={false} tickMargin={10} axisLine={false} />
                                 <ChartTooltip content={<ChartTooltipContent hideLabel />} />
