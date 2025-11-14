@@ -47,7 +47,7 @@ class SummaryController extends Controller
         $actor = Auth::user();
 
         try {
-            $this->approvalService->submitApproval(
+            $this->approvalService->updateSummary(
                 $report,
                 $actor,
                 $request->validated()

@@ -48,6 +48,18 @@ class SubmitApprovalRequest extends FormRequest
         return $rules;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'final_classification' => $this->input('final_classification') ?? $this->input('finalClassification'),
+            'override_reason' => $this->input('override_reason') ?? $this->input('overrideReason'),
+            'business_notes' => $this->input('business_notes') ?? $this->input('businessNotes'),
+            'reviewer_notes' => $this->input('reviewer_notes') ?? $this->input('reviewerNotes'),
+            'is_override' => $this->input('is_override') ?? $this->input('isOverride'),
+            'notes' => $this->input('notes') ?? $this->input('rejectNotes'),
+        ]);
+    }
+
 
     public function messages(): array
     {

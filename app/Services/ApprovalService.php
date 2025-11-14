@@ -7,6 +7,7 @@ use App\Enums\ApprovalStatus;
 use App\Enums\Classification;
 use App\Models\Approval;
 use App\Models\Report;
+use App\Models\ReportSummary;
 use App\Enums\ReportStatus;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -184,5 +185,75 @@ class ApprovalService extends BaseService
             ApprovalLevel::KADIV_ERO => ReportStatus::DONE,
             default => $report->status
         };
+    }
+
+    public function submitApproval(Report $report, User $actor, array $data): Approval
+    {
+        $level = match (true) {
+            $actor->hasRole('risk_analyst') => ApprovalLevel::ERO,
+            $actor->hasRole('kadept_bisnis') => ApprovalLevel::KADEPT_BISNIS,
+            $actor->hasRole('kadept_risk') => ApprovalLevel::KADIV_ERO,
+            default => throw new AuthorizationException('Peran pengguna tidak mendukung persetujuan.'),
+        };
+
+        $this->validateActorPermission($actor, $level);
+        $this->validateSequentialFlow($report, $level);
+
+        $approval = $report->approvals()
+            ->where('level', $level)
+            ->where('status', ApprovalStatus::PENDING)
+            ->first();
+
+        if (!$approval) {
+            throw new AuthorizationException('Tidak ada approval yang pending pada level ini.');
+        }
+
+        return $this->processApproval($approval, $actor, ApprovalStatus::APPROVED, $data);
+    }
+
+    public function updateSummary(Report $report, User $actor, array $data): ReportSummary
+    {
+        $report->loadMissing('summary');
+        if (!$report->summary) {
+            $report->summary()->create([]);
+            $report->load('summary');
+        }
+
+        $update = [];
+
+        if ($actor->hasRole('relationship_manager')) {
+            if (array_key_exists('business_notes', $data)) {
+                $update['business_notes'] = $data['business_notes'];
+            }
+        }
+
+        if ($actor->hasRole('risk_analyst')) {
+            if (array_key_exists('reviewer_notes', $data)) {
+                $update['reviewer_notes'] = $data['reviewer_notes'];
+            }
+            if (array_key_exists('final_classification', $data)) {
+                $update['final_classification'] = Classification::tryFrom($data['final_classification']);
+            }
+            if (array_key_exists('override_reason', $data)) {
+                $update['override_reason'] = $data['override_reason'];
+            }
+            if (array_key_exists('is_override', $data) || array_key_exists('final_classification', $data)) {
+                $update['is_override'] = (bool)($data['is_override'] ?? true);
+            }
+        }
+
+        if ($update !== []) {
+            $report->summary->update($update);
+        }
+
+        $this->audit($actor, [
+            'action' => 'summary_updated',
+            'auditable_id' => $report->summary->id,
+            'auditable_type' => ReportSummary::class,
+            'report_id' => $report->id,
+            'meta' => $update,
+        ]);
+
+        return $report->summary->fresh();
     }
 }
