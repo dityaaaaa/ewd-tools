@@ -267,7 +267,11 @@ export default function Summary({ reportData }: SummaryProps) {
         }
         setIsSaving(true);
         try {
-            await axios.put(`/summary/${reportData.id}`, { ...summaryForm, finalClassification });
+            const payload: any = { ...summaryForm };
+            if (summaryForm.isOverride) {
+                payload.finalClassification = finalClassification;
+            }
+            await axios.put(`/summary/${reportData.id}`, payload);
             toast.success('Data ringkasan berhasil disimpan');
             if (finalClassification === 'WATCHLIST') {
                 toast.info('Debitur masuk kategori WATCHLIST. Silakan lengkapi NAW.');

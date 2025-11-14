@@ -53,7 +53,7 @@ class SummaryController extends Controller
                 $request->validated()
             );
 
-            return redirect()->route('summary.show', $report)->with('success', 'Tindakan persetujuan berhasil disimpan.');
+            return redirect()->route('summary.show', $report)->with('success', 'Summary berhasil diperbarui.');
         } catch (Exception $e) {
             report($e);
 
