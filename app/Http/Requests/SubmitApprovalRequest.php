@@ -28,7 +28,7 @@ class SubmitApprovalRequest extends FormRequest
         $rules = [
             'business_notes' => 'nullable|string|max:2000',
             'reviewer_notes' => 'nullable|string|max:2000',
-            'final_classification' => ['nullable', new Enum(Classification::class)],
+            'final_classification' => ['nullable', 'in:0,1,SAFE,WATCHLIST'],
             'override_reason' => ['nullable', 'string', 'max:1000', 'required_with:final_classification'],
         ];
 

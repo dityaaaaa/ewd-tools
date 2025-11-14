@@ -68,12 +68,30 @@ class ApprovalService extends BaseService
             $report->save();
 
             if ($approval->level === ApprovalLevel::ERO && $status === ApprovalStatus::APPROVED && isset($data['final_classification'])) {
-                $report->loadMissing('summary');
-                $report->summary->update([
-                    'final_classification' => Classification::tryFrom($data['final_classification']),
-                    'override_reason' => $data['override_reason'] ?? null,
-                    'is_override' => true,
-                ]);
+                $fc = $data['final_classification'];
+                if (is_string($fc)) {
+                    $map = [
+                        'SAFE' => Classification::SAFE,
+                        'WATCHLIST' => Classification::WATCHLIST,
+                    ];
+                    $enum = $map[strtoupper($fc)] ?? null;
+                } elseif (is_int($fc)) {
+                    $enum = Classification::tryFrom($fc);
+                } elseif ($fc instanceof Classification) {
+                    $enum = $fc;
+                } else {
+                    $enum = null;
+                }
+
+                if ($enum) {
+                    $report->loadMissing('summary');
+                    $report->summary->update([
+                        'final_classification' => $enum,
+                        'override_reason' => $data['override_reason'] ?? null,
+                        'override_by' => $actor->id,
+                        'is_override' => true,
+                    ]);
+                }
             }
 
             if (isset($data['business_notes']) || isset($data['reviewer_notes'])) {
@@ -215,44 +233,55 @@ class ApprovalService extends BaseService
     {
         $report->loadMissing('summary');
         if (!$report->summary) {
-            $report->summary()->create([]);
+            $report->summary()->create([
+                'final_classification' => Classification::WATCHLIST,
+            ]);
             $report->load('summary');
         }
 
         $update = [];
 
-        if ($actor->hasRole('relationship_manager')) {
-            if (array_key_exists('business_notes', $data)) {
-                $update['business_notes'] = $data['business_notes'];
+        if (array_key_exists('business_notes', $data)) {
+            $update['business_notes'] = $data['business_notes'];
+        }
+
+        if (array_key_exists('reviewer_notes', $data)) {
+            $update['reviewer_notes'] = $data['reviewer_notes'];
+        }
+
+        if (array_key_exists('final_classification', $data) && $data['final_classification'] !== null) {
+            $fc = $data['final_classification'];
+            if (is_string($fc)) {
+                $map = [
+                    'SAFE' => Classification::SAFE,
+                    'WATCHLIST' => Classification::WATCHLIST,
+                ];
+                $enum = $map[strtoupper($fc)] ?? null;
+            } elseif (is_int($fc)) {
+                $enum = Classification::tryFrom($fc);
+            } elseif ($fc instanceof Classification) {
+                $enum = $fc;
+            } else {
+                $enum = null;
+            }
+
+            if ($enum) {
+                $update['final_classification'] = $enum;
+                $update['override_by'] = $actor->id;
             }
         }
 
-        if ($actor->hasRole('risk_analyst')) {
-            if (array_key_exists('reviewer_notes', $data)) {
-                $update['reviewer_notes'] = $data['reviewer_notes'];
-            }
-            if (array_key_exists('final_classification', $data)) {
-                $update['final_classification'] = Classification::tryFrom($data['final_classification']);
-            }
-            if (array_key_exists('override_reason', $data)) {
-                $update['override_reason'] = $data['override_reason'];
-            }
-            if (array_key_exists('is_override', $data) || array_key_exists('final_classification', $data)) {
-                $update['is_override'] = (bool)($data['is_override'] ?? true);
-            }
+        if (array_key_exists('override_reason', $data)) {
+            $update['override_reason'] = $data['override_reason'];
+        }
+
+        if (array_key_exists('is_override', $data)) {
+            $update['is_override'] = (bool)$data['is_override'];
         }
 
         if ($update !== []) {
             $report->summary->update($update);
         }
-
-        $this->audit($actor, [
-            'action' => 'summary_updated',
-            'auditable_id' => $report->summary->id,
-            'auditable_type' => ReportSummary::class,
-            'report_id' => $report->id,
-            'meta' => $update,
-        ]);
 
         return $report->summary->fresh();
     }
