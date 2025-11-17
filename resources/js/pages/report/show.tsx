@@ -41,9 +41,37 @@ type Approval = {
     updated_at: string;
 };
 
+type Answer = {
+    id: number;
+    question_version_id: number;
+    question_option_id: number;
+    notes: string;
+    question_option: { id: number; option_text: string };
+    question_version: { id: number; question_text: string };
+};
+
+type QuestionVersion = {
+    id: number;
+    question_text: string;
+};
+
+type AspectVersion = {
+    id: number;
+    name: string;
+    question_versions: QuestionVersion[];
+};
+
+type ReportAspect = {
+    id: number;
+    classification: number;
+    aspect_version: AspectVersion;
+};
+
 type PageProps = {
     report: Report & {
         approvals?: Approval[];
+        aspects?: ReportAspect[];
+        answers?: Answer[];
     };
     template: Template;
     watchlist?: Watchlist;
@@ -70,7 +98,6 @@ const formatBoolean = (value: boolean | undefined) => {
 };
 
 const getClassificationBg = (c?: number) => (c === 0 ? 'bg-red-100' : 'bg-green-100');
-const getClassificationIcon = (c?: number) => (c === 0 ? AlertTriangleIcon : CheckIcon);
 
 export default function ReportShow({ report, template, watchlist }: PageProps) {
     const page = usePage<SharedData>().props;
@@ -102,6 +129,17 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
     }, [report]);
     console.log(aspects);
 
+    const answerMap = useMemo(() => {
+        const map = new Map<number, Answer>();
+        (answers || []).forEach((answer: any) => {
+            const qvId = (answer as any)?.question_version_id || answer?.question_version?.id;
+            if (qvId) {
+                map.set(qvId, answer);
+            }
+        });
+        return map;
+    }, [answers]);
+
     const facilitiesTotals = useMemo(() => {
         return facilities.reduce(
             (acc, facility) => {
@@ -119,18 +157,23 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
         borrower: true,
         facilities: true,
         aspects: true,
-        answers: true,
         summary: true,
         approvals: true,
         audits: true,
         debug: true,
     });
 
+    const [expandedAspects, setExpandedAspects] = useState<Record<number, boolean>>({});
+
     const [rejectionReason, setRejectionReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
     const toggleSection = useCallback((section: keyof typeof expandedSections) => {
         setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+    }, []);
+
+    const toggleAspectDetail = useCallback((aspectId: number) => {
+        setExpandedAspects((prev) => ({ ...prev, [aspectId]: !prev[aspectId] }));
     }, []);
 
     const handleApprove = useCallback(async (approvalId: number) => {
@@ -283,30 +326,6 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
             href: reports.show(report.id).url,
         },
     ];
-
-    const answersWithNotes = useMemo(() => {
-        try {
-            return (answers || []).filter((a: any) => typeof a?.notes === 'string' && a.notes.trim() !== '');
-        } catch {
-            return [] as any[];
-        }
-    }, [answers]);
-
-    const getQuestionText = (answer: any) => {
-        return (
-            answer?.questionVersion?.question_text ||
-            answer?.question_version?.question_text ||
-            'Pertanyaan'
-        );
-    };
-
-    const getOptionText = (answer: any) => {
-        return (
-            answer?.questionOption?.option_text ||
-            answer?.question_option?.option_text ||
-            '-'
-        );
-    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -541,70 +560,94 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
                                     {aspects.length === 0 ? (
                                         <p className="text-center text-gray-500">Tidak ada aspek penilaian</p>
                                     ) : (
-                                        aspects.map((aspect, index) => (
-                                            <div key={aspect.id} className="rounded-lg border p-4">
-                                                <div className="mb-3 flex items-center justify-between">
-                                                    <h4 className="font-medium">{aspect.aspect_version.name || `Aspek ${index + 1}`}</h4>
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge
-                                                            className={`${
-                                                                aspect.classification === 0
-                                                                    ? 'bg-red-100 text-red-800'
-                                                                    : 'bg-green-100 text-green-800'
-                                                            } text-xs`}
-                                                        >
-                                                            {aspect.classification === 0 ? 'WATCHLIST' : 'SAFE'}
-                                                        </Badge>
-                                                    </div>
+                                        aspects.map((aspect, index) => {
+                                            // Cek apakah dropdown aspek ini terbuka
+                                            const isAspectExpanded = !!expandedAspects[aspect.id];
+                                            // Ambil semua question versions dari aspect version
+                                            const qVersions = (aspect as any)?.aspect_version?.question_versions || [];
+
+                                            return (
+                                                <div key={aspect.id} className="rounded-lg border">
+                                                    {/* Ini adalah Trigger untuk dropdown per aspek */}
+                                                    <button
+                                                        type="button"
+                                                        className="flex w-full cursor-pointer items-center justify-between p-4 text-left"
+                                                        onClick={() => toggleAspectDetail(aspect.id)}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <h4 className="font-medium">
+                                                                {aspect.aspect_version.name || `Aspek ${index + 1}`}
+                                                            </h4>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge
+                                                                className={`${
+                                                                    aspect.classification === 0
+                                                                        ? 'bg-red-100 text-red-800'
+                                                                        : 'bg-green-100 text-green-800'
+                                                                } text-xs`}
+                                                            >
+                                                                {aspect.classification === 0 ? 'WATCHLIST' : 'SAFE'}
+                                                            </Badge>
+                                                            {isAspectExpanded ? (
+                                                                <ChevronUpIcon className="h-4 w-4" />
+                                                            ) : (
+                                                                <ChevronDownIcon className="h-4 w-4" />
+                                                            )}
+                                                        </div>
+                                                    </button>
+
+                                                    {/* Ini adalah Konten Dropdown yang berisi Q&A */}
+                                                    {isAspectExpanded && (
+                                                        <div className="border-t bg-gray-50 p-4">
+                                                            {qVersions.length === 0 ? (
+                                                                <p className="text-sm text-gray-500">
+                                                                    Tidak ada pertanyaan untuk aspek ini.
+                                                                </p>
+                                                            ) : (
+                                                                <div className="space-y-4">
+                                                                    {qVersions.map((qVersion: any) => {
+                                                                        // Cari jawaban di answerMap
+                                                                        const answer = answerMap.get(qVersion.id);
+                                                                        const optionText =
+                                                                            (answer as any)?.questionOption?.option_text ||
+                                                                            (answer as any)?.question_option?.option_text ||
+                                                                            'Tidak Dijawab';
+                                                                        const notes = (answer as any)?.notes;
+
+                                                                        return (
+                                                                            <div key={qVersion.id} className="rounded border bg-white p-3 shadow-sm">
+                                                                                <h5 className="font-medium text-sm text-gray-800">
+                                                                                    {qVersion.question_text}
+                                                                                </h5>
+                                                                                <div className="my-2">
+                                                                                    <Badge variant="secondary">{optionText}</Badge>
+                                                                                </div>
+                                                                                {notes && (
+                                                                                    <div className="mt-2 border-t pt-2">
+                                                                                        <Label className="text-xs font-medium text-gray-500">
+                                                                                            Catatan:
+                                                                                        </Label>
+                                                                                        <p className="mt-1 text-sm whitespace-pre-wrap text-gray-700">
+                                                                                            {notes}
+                                                                                        </p>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
                             </CardContent>
                         )}
                     </Card>
-
-                    {/* Jawaban & Catatan */}
-                    {answersWithNotes.length > 0 && (
-                        <Card className="mb-6">
-                            <CardHeader className="cursor-pointer" onClick={() => toggleSection('answers')}>
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <FileTextIcon className="h-5 w-5" />
-                                        Jawaban & Catatan ({answersWithNotes.length})
-                                    </CardTitle>
-                                    {expandedSections.answers ? (
-                                        <ChevronUpIcon className="h-4 w-4" />
-                                    ) : (
-                                        <ChevronDownIcon className="h-4 w-4" />
-                                    )}
-                                </div>
-                            </CardHeader>
-                            {expandedSections.answers && (
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {answersWithNotes.map((ans: any, idx: number) => (
-                                            <div key={ans.id ?? idx} className="rounded-lg border p-4">
-                                                <div className="mb-2 flex items-center justify-between">
-                                                    <h4 className="font-medium">
-                                                        {getQuestionText(ans)}
-                                                    </h4>
-                                                    <Badge className="bg-blue-100 text-blue-800 text-xs">
-                                                        {getOptionText(ans)}
-                                                    </Badge>
-                                                </div>
-                                                <Label className="text-sm font-medium text-gray-500">Catatan</Label>
-                                                <p className="mt-1 rounded border bg-gray-50 p-3 text-sm whitespace-pre-wrap">
-                                                    {ans.notes}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </CardContent>
-                            )}
-                        </Card>
-                    )}
 
                     {/* Ringkasan */}
                     {summary && (

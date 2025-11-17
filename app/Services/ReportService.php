@@ -76,6 +76,7 @@ class ReportService
                 'answers.questionOption',
                 'aspects',
                 'aspects.aspectVersion',
+                'aspects.aspectVersion.questionVersions.questionOption',
                 'approvals',
                 'approvals.reviewer',
                 'audits',
