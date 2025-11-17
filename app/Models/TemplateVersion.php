@@ -53,8 +53,8 @@ class TemplateVersion extends Model
                 $aspectGroups[] = [
                     'id' => $aspect->id,
                     'aspect_id' => $aspect->id,
-                    'name' => $aspect->name,
-                    'description' => $aspect->description,
+                    'name' => $aspect->latestAspectVersion->name,
+                    'description' => $aspect->latestAspectVersion->description,
                     'weight' => $aspect->pivot->weight ?? 0,
                     'aspects' => $questions,
                 ];
