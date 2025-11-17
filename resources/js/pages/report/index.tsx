@@ -78,7 +78,7 @@ const getClassificationBadge = (classification?: number | string | null) => {
     const cStr = typeof classification === 'string' ? classification.toLowerCase() : undefined;
     const labelFromNum: Record<number, string> = {
         0: 'Watchlist',
-        1: 'Aman',
+        1: 'Safe',
     };
     const variantFromNum: Record<number, 'default' | 'secondary' | 'outline'> = {
         0: 'secondary',
@@ -86,7 +86,7 @@ const getClassificationBadge = (classification?: number | string | null) => {
     };
     const labelFromStr: Record<string, string> = {
         watchlist: 'Watchlist',
-        safe: 'Aman',
+        safe: 'Safe',
     };
     const variantFromStr: Record<string, 'default' | 'secondary' | 'outline'> = {
         watchlist: 'secondary',

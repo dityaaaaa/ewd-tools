@@ -28,7 +28,7 @@ import { toast } from 'react-toastify';
 
 type Approval = {
     id: number;
-    level: string;
+    level: number;
     status: 'pending' | 'approved' | 'rejected';
     reviewed_by?: number;
     reviewer?: {
@@ -253,15 +253,15 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
         }
     };
 
-    const getApprovalLevelLabel = (level: string) => {
+    const getApprovalLevelLabel = (level: number) => {
         switch (level) {
-            case 'RM':
+            case 1:
                 return 'Relationship Manager';
-            case 'ERO':
+            case 2:
                 return 'ERO (Risk Analyst)';
-            case 'KADEPT_BISNIS':
+            case 3:
                 return 'Kepala Departemen Bisnis';
-            case 'KADIV_ERO':
+            case 4:
                 return 'Kepala Divisi ERO';
             default:
                 return level;
