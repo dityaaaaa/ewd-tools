@@ -64,6 +64,18 @@ Route::get('reports/{report}/export-pdf', [ReportController::class, 'exportPdf']
     ->middleware(['auth'])
     ->name('reports.exportPdf');
 
+Route::get('reports/export-excel', [ReportController::class, 'exportExcel'])
+    ->middleware(['auth'])
+    ->name('reports.exportExcel');
+
+Route::get('reports/{report}/export-excel', [ReportController::class, 'exportExcelDetail'])
+    ->middleware(['auth'])
+    ->name('reports.exportExcelDetail');
+
+Route::get('reports/{report}/export-pdf-download', [ReportController::class, 'exportPdfDownload'])
+    ->middleware(['auth'])
+    ->name('reports.exportPdfDownload');
+
 Route::get('approvals', [ApprovalController::class, 'index'])
     ->middleware(['auth'])
     ->name('approvals.index');

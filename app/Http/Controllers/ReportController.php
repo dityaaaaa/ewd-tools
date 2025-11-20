@@ -60,25 +60,25 @@ class ReportController extends Controller
         }
     }
 
-    public function show(int $id)
+    public function show($id)
     {
-        $report = $this->reportService->getReportById($id);
-        
+        $report = $this->reportService->getReportById((int)$id);
+
         $report->load([
             'approvals' => function ($query) {
                 $query->orderBy('level');
             },
             'approvals.reviewer'
         ]);
-        
+
         return Inertia::render('report/show', [
             'report' => $report
         ]);
     }
 
-    public function edit(int $id)
+    public function edit($id)
     {
-        $report = $this->reportService->getReportById($id);
+        $report = $this->reportService->getReportById((int)$id);
 
         // Authorization: reuse submit logic for RM resubmission
         $this->authorize('submit', $report);
@@ -137,10 +137,10 @@ class ReportController extends Controller
         ]);
     }
 
-    public function update(UpdateFormRequest $request, int $id)
+    public function update(UpdateFormRequest $request, $id)
     {
         $actor = Auth::user();
-        $report = $this->reportService->getReportById($id);
+        $report = $this->reportService->getReportById((int)$id);
 
         $this->authorize('submit', $report);
 
@@ -157,14 +157,11 @@ class ReportController extends Controller
         }
     }
 
-    public function exportPdf(int $id)
+    public function exportPdf($id)
     {
-        $report = $this->reportService->getReportById($id);
+        $report = $this->reportService->getReportById((int)$id);
 
-        // Hanya izinkan export jika status laporan sudah selesai
-        if ($report->status !== ReportStatus::DONE) {
-            abort(403, 'Laporan belum selesai. Export PDF hanya untuk laporan yang sudah selesai.');
-        }
+
 
         $report->load([
             'borrower.division',
@@ -180,7 +177,7 @@ class ReportController extends Controller
         // Gabungkan data NAW (watchlist note) ke dalam satu halaman
         /** @var MonitoringNoteService $monitoringNoteService */
         $monitoringNoteService = app(MonitoringNoteService::class);
-        $monitoringData = $monitoringNoteService->getMonitoringNoteData($id);
+        $monitoringData = $monitoringNoteService->getMonitoringNoteData((int)$id);
 
         return Inertia::render('report/export', [
             'report' => $report,
@@ -192,5 +189,128 @@ class ReportController extends Controller
                 'next_period' => [],
             ],
         ]);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $filters = [
+            'q' => $request->get('q'),
+            'division_id' => $request->get('division_id'),
+            'period_id' => $request->get('period_id'),
+        ];
+
+        $filename = 'Reports_' . now()->format('Y-m-d') . '.xlsx';
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\ReportsListExport($filters),
+            $filename
+        );
+    }
+
+    public function exportExcelDetail($id)
+    {
+        $report = $this->reportService->getReportById((int)$id);
+
+        $report->load([
+            'borrower.division',
+            'borrower.facilities',
+            'borrower.detail',
+            'period',
+            'summary',
+            'approvals' => function ($q) {
+                $q->orderBy('level');
+            },
+            'approvals.reviewer',
+            'aspects.aspectVersion.aspect',
+            'answers.questionVersion.aspectVersion.aspect',
+            'answers.questionOption',
+        ]);
+
+        /** @var MonitoringNoteService $monitoringNoteService */
+        $monitoringNoteService = app(MonitoringNoteService::class);
+        $monitoringData = $monitoringNoteService->getMonitoringNoteData((int)$id);
+
+        $summary = [
+            'Borrower' => $report->borrower?->name,
+            'Division' => $report->borrower?->division?->name,
+            'Period' => $report->period?->name,
+            'Status' => $report->status ?? '',
+            'Final Classification' => $report->summary?->final_classification,
+            'Indicative Collectibility' => $report->summary?->indicative_collectibility,
+            'Override' => $report->summary?->is_override ? 'Yes' : 'No',
+            'Override Reason' => $report->summary?->override_reason ?? '',
+            'Business Notes' => $report->summary?->business_notes ?? '',
+            'Submitted At' => optional($report->submitted_at)?->format('Y-m-d H:i'),
+        ];
+
+        $watchlistArr = [
+            'watchlist_reason' => $monitoringData['monitoring_note']?->watchlist_reason ?? '',
+            'account_strategy' => $monitoringData['monitoring_note']?->account_strategy ?? '',
+        ];
+
+        $qaRows = [];
+        foreach ($report->answers as $ans) {
+            $qv = $ans->questionVersion;
+            $qaRows[] = [
+                $qv?->aspectVersion?->aspect?->code ?? '',
+                $qv?->aspectVersion?->name ?? '',
+                $qv?->question_text ?? '',
+                $ans->questionOption?->option_text ?? '',
+                $ans->questionOption?->score ?? '',
+                $ans->notes ?? '',
+            ];
+        }
+
+        $filename = 'Report_' . ($report->borrower?->name ?? 'Unknown') . '_' . ($report->period?->name ?? 'Period') . '.xlsx';
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\ReportDetailExport($summary, $watchlistArr, $monitoringData['action_items'] ?? [], $qaRows),
+            $filename
+        );
+    }
+
+    public function exportPdfDownload($id)
+    {
+        $report = $this->reportService->getReportById((int)$id);
+
+        $report->load([
+            'borrower.division',
+            'period',
+            'summary',
+            'answers.questionVersion.aspectVersion.aspect',
+            'answers.questionOption',
+        ]);
+
+        /** @var MonitoringNoteService $monitoringNoteService */
+        $monitoringNoteService = app(MonitoringNoteService::class);
+        $monitoringData = $monitoringNoteService->getMonitoringNoteData((int)$id);
+
+        $answers = $report->answers->map(function ($ans) {
+            $qv = $ans->questionVersion;
+            return [
+                'aspect_code' => $qv?->aspectVersion?->aspect?->code ?? '',
+                'aspect_name' => $qv?->aspectVersion?->name ?? '',
+                'question' => $qv?->question_text ?? '',
+                'option' => $ans->questionOption?->option_text ?? '',
+                'score' => $ans->questionOption?->score ?? '',
+                'notes' => $ans->notes ?? '',
+            ];
+        })->toArray();
+
+        $filename = 'Report_' . ($report->borrower?->name ?? 'Unknown') . '_' . ($report->period?->name ?? 'Period') . '.pdf';
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.report-detail', [
+            'report' => $report,
+            'watchlist' => $monitoringData['watchlist'] ?? null,
+            'monitoring_note' => $monitoringData['monitoring_note'] ?? null,
+            'action_items' => $monitoringData['action_items'] ?? [
+                'previous_period' => [],
+                'current_progress' => [],
+                'next_period' => [],
+            ],
+            'answers' => $answers,
+        ])->setPaper('a4');
+
+        return $pdf->download($filename);
     }
 }

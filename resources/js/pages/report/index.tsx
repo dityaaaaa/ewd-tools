@@ -232,6 +232,22 @@ export default function ReportIndex() {
                                                 <XIcon className="h-4 w-4" />
                                             </Button>
                                         )}
+                                        <Button
+                                            variant="default"
+                                            onClick={() => {
+                                                const url = reportRoutes.exportExcel.url({
+                                                    query: {
+                                                        ...(q ? { q } : {}),
+                                                        ...(divisionId ? { division_id: String(divisionId) } : {}),
+                                                        ...(periodId ? { period_id: String(periodId) } : {}),
+                                                    },
+                                                });
+                                                window.location.href = url;
+                                            }}
+                                            aria-label="Export Excel"
+                                        >
+                                            Export Excel
+                                        </Button>
                                     </div>
                                 </div>
                             </CardHeader>

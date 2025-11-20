@@ -389,6 +389,18 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
                                         Lihat NAW
                                     </Button>
                                 )}
+                                <Button variant={'default'} size={'sm'} onClick={() => window.open(`/reports/${report.id}/export-excel`, '_self')}>
+                                    <FileTextIcon className="h-4 w-4" />
+                                    Export Excel
+                                </Button>
+                                <Button variant={'default'} size={'sm'} onClick={() => window.open(`/reports/${report.id}/export-pdf`, '_blank')}>
+                                    <FileTextIcon className="h-4 w-4" />
+                                    Preview PDF
+                                </Button>
+                                <Button variant={'default'} size={'sm'} onClick={() => window.open(`/reports/${report.id}/export-pdf-download`, '_self')}>
+                                    <FileTextIcon className="h-4 w-4" />
+                                    Download PDF
+                                </Button>
                                 <Link href={reports.index().url}>
                                     <Button variant={'outline'} size={'sm'}>
                                         <ArrowLeftIcon className="h-4 w-4" />
