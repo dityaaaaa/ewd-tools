@@ -15,6 +15,9 @@ use App\Enums\ApprovalLevel;
 use App\Enums\ApprovalStatus;
 use App\Enums\ActionItemStatus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Database\QueryException;
 use Carbon\Carbon;
 
 class DashboardService extends BaseService
@@ -35,33 +38,43 @@ class DashboardService extends BaseService
 
     protected function getAdminDashboard(User $user): array
     {
+        $activePeriod = $this->getActivePeriod();
+        
         return [
             'stats' => array_merge([
                 'total_users' => User::count(),
-                'total_reports' => Report::count(),
+                'total_reports' => $activePeriod ? Report::where('period_id', $activePeriod->id)->count() : 0,
                 'total_borrowers' => Borrower::count(),
                 'active_periods' => Period::where('status', PeriodStatus::ACTIVE)->count(),
-                'sent' => Report::count(),
-                'waiting_review' => Approval::where('status', ApprovalStatus::PENDING)->count(),
-                'reviewed' => Approval::where('status', ApprovalStatus::APPROVED)->count(),
-                'validated' => Approval::where('status', ApprovalStatus::APPROVED)->where('level', ApprovalLevel::KADIV_ERO->value)->count(),
+                'sent' => $activePeriod ? Report::where('period_id', $activePeriod->id)->count() : 0,
+                'waiting_review' => $activePeriod ? Approval::whereHas('report', function($q) use ($activePeriod) {
+                    $q->where('period_id', $activePeriod->id);
+                })->where('status', ApprovalStatus::PENDING)->count() : 0,
+                'reviewed' => $activePeriod ? Approval::whereHas('report', function($q) use ($activePeriod) {
+                    $q->where('period_id', $activePeriod->id);
+                })->where('status', ApprovalStatus::APPROVED)->count() : 0,
+                'validated' => $activePeriod ? Approval::whereHas('report', function($q) use ($activePeriod) {
+                    $q->where('period_id', $activePeriod->id);
+                })->where('status', ApprovalStatus::APPROVED)->where('level', ApprovalLevel::KADIV_ERO->value)->count() : 0,
             ], $this->getGlobalStats()),
             'charts' => [
-                'reports_by_status' => $this->getReportsByStatus(),
-                'reports_by_division' => $this->getReportsByDivision(),
+                'reports_by_status' => $this->getReportsByStatus($activePeriod),
+                'reports_by_division' => $this->getReportsByDivision($activePeriod),
                 'monthly_report_trend' => $this->getMonthlyReportTrend(),
-                'approval_pipeline' => $this->getApprovalPipelineSummary(),
-                'watchlist_by_division' => $this->getWatchlistByDivision(),
+                'approval_pipeline' => $this->getApprovalPipelineSummary(null, $activePeriod),
+                'watchlist_by_division' => $this->getWatchlistByDivision($activePeriod),
                 'borrowers_by_division' => $this->getBorrowersByDivision(),
             ],
-            'recent_activities' => $this->getRecentActivities(),
+            'recent_activities' => $this->getRecentActivities($activePeriod),
             'system_health' => $this->getSystemHealth(),
             'actionable_items' => [
-                'pending_approvals' => Approval::where('status', ApprovalStatus::PENDING)->count(),
-                'overdue_reports' => $this->getOverdueReportsCount(),
+                'pending_approvals' => $activePeriod ? Approval::whereHas('report', function($q) use ($activePeriod) {
+                    $q->where('period_id', $activePeriod->id);
+                })->where('status', ApprovalStatus::PENDING)->count() : 0,
+                'overdue_reports' => $this->getOverdueReportsCount($activePeriod),
                 'inactive_users' => $this->getInactiveUsersCount(),
             ],
-            'incoming_reports' => $this->getIncomingReports(),
+            'incoming_reports' => $this->getIncomingReports($activePeriod),
         ];
     }
 
@@ -231,20 +244,45 @@ class DashboardService extends BaseService
     }
 
     // Helper methods for data aggregation
-    protected function getReportsByStatus(): array
+    
+    /**
+     * Get active period or latest period
+     */
+    protected function getActivePeriod(): ?Period
     {
-        return Report::select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
+        $period = Period::where('status', PeriodStatus::ACTIVE)->latest('start_date')->first();
+        
+        if (!$period) {
+            $period = Period::orderByDesc('start_date')->first();
+        }
+        
+        return $period;
+    }
+    
+    protected function getReportsByStatus(?Period $period = null): array
+    {
+        $query = Report::select('status', DB::raw('count(*) as count'));
+        
+        if ($period) {
+            $query->where('period_id', $period->id);
+        }
+        
+        return $query->groupBy('status')
             ->pluck('count', 'status')
             ->toArray();
     }
 
-    protected function getReportsByDivision(): array
+    protected function getReportsByDivision(?Period $period = null): array
     {
-        return Report::join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
+        $query = Report::join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
             ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
-            ->select('divisions.code', DB::raw('count(*) as count'))
-            ->groupBy('divisions.code')
+            ->select('divisions.code', DB::raw('count(*) as count'));
+            
+        if ($period) {
+            $query->where('reports.period_id', $period->id);
+        }
+        
+        return $query->groupBy('divisions.code')
             ->pluck('count', 'code')
             ->toArray();
     }
@@ -258,13 +296,18 @@ class DashboardService extends BaseService
             ->toArray();
     }
 
-    protected function getWatchlistByDivision(): array
+    protected function getWatchlistByDivision(?Period $period = null): array
     {
-        return Watchlist::join('reports', 'watchlists.report_id', '=', 'reports.id')
+        $query = Watchlist::join('reports', 'watchlists.report_id', '=', 'reports.id')
             ->join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
             ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
-            ->select('divisions.code', DB::raw('count(*) as count'))
-            ->groupBy('divisions.code')
+            ->select('divisions.code', DB::raw('count(*) as count'));
+            
+        if ($period) {
+            $query->where('reports.period_id', $period->id);
+        }
+        
+        return $query->groupBy('divisions.code')
             ->pluck('count', 'code')
             ->toArray();
     }
@@ -290,10 +333,15 @@ class DashboardService extends BaseService
             ->toArray();
     }
 
-    protected function getRecentActivities(): array
+    protected function getRecentActivities(?Period $period = null): array
     {
-        return Report::with(['borrower', 'creator'])
-            ->latest()
+        $query = Report::with(['borrower', 'creator']);
+        
+        if ($period) {
+            $query->where('period_id', $period->id);
+        }
+        
+        return $query->latest()
             ->limit(10)
             ->get()
             ->map(function ($report) {
@@ -318,22 +366,24 @@ class DashboardService extends BaseService
 
     protected function getGlobalStats(): array
     {
-        $latest = Period::active()->latest('start_date')->first();
-        if (!$latest) {
-            $latest = Period::orderByDesc('start_date')->first();
-        }
-        $endDate = $latest ? $latest->end_date : null;
+        $activePeriod = $this->getActivePeriod();
+        $endDate = $activePeriod ? $activePeriod->end_date : null;
         $daysLeft = $endDate ? (Carbon::parse($endDate)->isFuture() ? Carbon::now()->diffInDays(Carbon::parse($endDate)) : 0) : 0;
 
         return [
-            'reports_total' => Report::count(),
-            'watchlist_total' => Watchlist::count(),
+            'reports_total' => $activePeriod ? Report::where('period_id', $activePeriod->id)->count() : 0,
+            'watchlist_total' => $activePeriod ? Watchlist::whereHas('report', function($q) use ($activePeriod) {
+                $q->where('period_id', $activePeriod->id);
+            })->count() : 0,
+            'safe_reports' => $activePeriod ? Report::where('period_id', $activePeriod->id)->count() - Watchlist::whereHas('report', function($q) use ($activePeriod) {
+                $q->where('period_id', $activePeriod->id);
+            })->count() : 0,
             'period_end_date' => $endDate,
             'period_days_left' => $daysLeft,
         ];
     }
 
-    protected function getOverdueReportsCount(): int
+    protected function getOverdueReportsCount(?Period $period = null): int
     {
         // Implement logic for overdue reports based on your business rules
         return 0;
@@ -374,10 +424,15 @@ class DashboardService extends BaseService
             ->toArray();
     }
 
-    protected function getIncomingReports(): array
+    protected function getIncomingReports(?Period $period = null): array
     {
-        return Report::with(['borrower.division', 'period', 'creator'])
-            ->latest()
+        $query = Report::with(['borrower.division', 'period', 'creator']);
+        
+        if ($period) {
+            $query->where('period_id', $period->id);
+        }
+        
+        return $query->latest()
             ->limit(10)
             ->get()
             ->toArray();
@@ -631,14 +686,21 @@ class DashboardService extends BaseService
 
     /**
      * Ringkasan pipeline persetujuan: total pending/approved/rejected.
-     * Opsional filter berdasarkan division_id borrower.
+     * Opsional filter berdasarkan division_id borrower dan period.
      */
-    protected function getApprovalPipelineSummary(?int $divisionId = null): array
+    protected function getApprovalPipelineSummary(?int $divisionId = null, ?Period $period = null): array
     {
         $query = Approval::query();
+        
         if ($divisionId) {
             $query->whereHas('report.borrower', function ($q) use ($divisionId) {
                 $q->where('division_id', $divisionId);
+            });
+        }
+        
+        if ($period) {
+            $query->whereHas('report', function ($q) use ($period) {
+                $q->where('period_id', $period->id);
             });
         }
 
@@ -652,6 +714,164 @@ class DashboardService extends BaseService
             'pending' => (int)($raw[ApprovalStatus::PENDING->value] ?? 0),
             'approved' => (int)($raw[ApprovalStatus::APPROVED->value] ?? 0),
             'rejected' => (int)($raw[ApprovalStatus::REJECTED->value] ?? 0),
+        ];
+    }
+
+    // Period Comparison Methods
+
+    /**
+     * Get all available periods ordered by start date (newest first)
+     */
+    public function getAvailablePeriods(): array
+    {
+        return Period::orderByDesc('start_date')
+            ->get(['id', 'name', 'start_date', 'end_date', 'status'])
+            ->toArray();
+    }
+
+    /**
+     * Get comparison data for two periods
+     */
+    public function getPeriodComparisonData(int $period1Id, int $period2Id): array
+    {
+        try {
+            return [
+                'period1' => $this->getPeriodStats($period1Id),
+                'period2' => $this->getPeriodStats($period2Id),
+                'comparison' => $this->calculateComparison($period1Id, $period2Id)
+            ];
+        } catch (QueryException $e) {
+            Log::error('Period comparison query failed', [
+                'period1' => $period1Id,
+                'period2' => $period2Id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'error' => true,
+                'message' => 'Gagal mengambil data perbandingan. Silakan coba lagi.',
+                'data' => []
+            ];
+        }
+    }
+
+    /**
+     * Get statistics for a single period with caching
+     */
+    protected function getPeriodStats(int $periodId): array
+    {
+        $cacheKey = "period_stats_{$periodId}";
+
+        try {
+            return Cache::remember($cacheKey, 300, function () use ($periodId) {
+                return [
+                    'total_reports' => $this->getReportsCountByPeriod($periodId),
+                    'total_watchlist' => $this->getWatchlistCountByPeriod($periodId),
+                    'reports_by_division' => $this->getReportsByPeriodAndDivision($periodId),
+                    'watchlist_by_division' => $this->getWatchlistByPeriodAndDivision($periodId)
+                ];
+            });
+        } catch (\Exception $e) {
+            Log::warning('Cache failed, falling back to direct query', [
+                'key' => $cacheKey,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'total_reports' => $this->getReportsCountByPeriod($periodId),
+                'total_watchlist' => $this->getWatchlistCountByPeriod($periodId),
+                'reports_by_division' => $this->getReportsByPeriodAndDivision($periodId),
+                'watchlist_by_division' => $this->getWatchlistByPeriodAndDivision($periodId)
+            ];
+        }
+    }
+
+    /**
+     * Count reports for a specific period
+     */
+    protected function getReportsCountByPeriod(int $periodId): int
+    {
+        return Report::where('period_id', $periodId)->count();
+    }
+
+    /**
+     * Count watchlist items for a specific period
+     */
+    protected function getWatchlistCountByPeriod(int $periodId): int
+    {
+        return Watchlist::whereHas('report', function ($query) use ($periodId) {
+            $query->where('period_id', $periodId);
+        })->count();
+    }
+
+    /**
+     * Get reports count by division for a specific period
+     */
+    protected function getReportsByPeriodAndDivision(int $periodId): array
+    {
+        return Report::where('reports.period_id', $periodId)
+            ->join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
+            ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
+            ->select('divisions.code', DB::raw('count(*) as count'))
+            ->groupBy('divisions.code')
+            ->pluck('count', 'code')
+            ->toArray();
+    }
+
+    /**
+     * Get watchlist count by division for a specific period
+     */
+    protected function getWatchlistByPeriodAndDivision(int $periodId): array
+    {
+        return Watchlist::whereHas('report', function ($query) use ($periodId) {
+                $query->where('period_id', $periodId);
+            })
+            ->join('reports', 'watchlists.report_id', '=', 'reports.id')
+            ->join('borrowers', 'reports.borrower_id', '=', 'borrowers.id')
+            ->join('divisions', 'borrowers.division_id', '=', 'divisions.id')
+            ->select('divisions.code', DB::raw('count(*) as count'))
+            ->groupBy('divisions.code')
+            ->pluck('count', 'code')
+            ->toArray();
+    }
+
+    /**
+     * Calculate comparison metrics between two periods
+     */
+    protected function calculateComparison(int $period1Id, int $period2Id): array
+    {
+        $stats1 = $this->getPeriodStats($period1Id);
+        $stats2 = $this->getPeriodStats($period2Id);
+
+        return [
+            'reports_change' => $this->calculatePercentageChange(
+                $stats1['total_reports'],
+                $stats2['total_reports']
+            ),
+            'watchlist_change' => $this->calculatePercentageChange(
+                $stats1['total_watchlist'],
+                $stats2['total_watchlist']
+            )
+        ];
+    }
+
+    /**
+     * Calculate percentage change between two values
+     */
+    protected function calculatePercentageChange(int $current, int $previous): array
+    {
+        if ($previous === 0) {
+            return [
+                'value' => $current > 0 ? 100 : 0,
+                'direction' => $current > 0 ? 'up' : 'neutral'
+            ];
+        }
+
+        $change = (($current - $previous) / $previous) * 100;
+
+        return [
+            'value' => round($change, 2),
+            'direction' => $change > 0 ? 'up' : ($change < 0 ? 'down' : 'neutral')
         ];
     }
 }

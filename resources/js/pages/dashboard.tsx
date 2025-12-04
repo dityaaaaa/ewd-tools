@@ -8,6 +8,9 @@ import { BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, XAxis } from 'recharts';
+import { PeriodComparisonDropdowns } from '@/components/dashboard/period-comparison-dropdowns';
+import { ComparisonStatsCard } from '@/components/dashboard/comparison-stats-card';
+import { ComparisonChart } from '@/components/dashboard/comparison-chart';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -79,10 +82,19 @@ const CountdownTimer = memo(function CountdownTimer({ endDate }: { endDate: stri
 });
 
 export default function Dashboard() {
-    const page = usePage<{ dashboardData: any }>();
+    const page = usePage<{ dashboardData: any; availablePeriods: any; selectedPeriods: any; comparisonData: any }>();
     const data = page.props.dashboardData ?? {};
+    const availablePeriods = page.props.availablePeriods ?? [];
+    const selectedPeriods = page.props.selectedPeriods ?? {};
+    const comparisonData = page.props.comparisonData ?? null;
     const role: string = data.role ?? 'admin';
-    console.log(data);
+    
+    console.log('Dashboard Debug:', {
+        role,
+        availablePeriodsCount: availablePeriods.length,
+        hasComparisonData: !!comparisonData,
+        selectedPeriods,
+    });
 
     const statsItems = useMemo(() => {
         const borrowersByDivision = data.charts?.borrowers_by_division ?? {};
@@ -143,7 +155,7 @@ export default function Dashboard() {
         ];
     }, [role, data.stats, data.charts?.borrowers_by_division]);
 
-    const comparisonData = useMemo(() => {
+    const chartComparisonData = useMemo(() => {
         const reports = data.charts?.reports_by_division ?? {};
         const watchlist = data.charts?.watchlist_by_division ?? {};
         const divisions = Array.from(new Set([...Object.keys(reports), ...Object.keys(watchlist)]));
@@ -264,6 +276,98 @@ export default function Dashboard() {
                     ))}
                 </div>
 
+                {/* Period Comparison Section - Only for Admin */}
+                {role === 'admin' && availablePeriods.length > 0 && (
+                    <div className="mt-6 space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Perbandingan Periode</CardTitle>
+                                <CardDescription>Bandingkan data antara dua periode berbeda</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <PeriodComparisonDropdowns
+                                    availablePeriods={availablePeriods}
+                                    selectedPeriod1={selectedPeriods.period1}
+                                    selectedPeriod2={selectedPeriods.period2}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        {comparisonData && !comparisonData.error && (
+                            <>
+                                {/* Comparison Stats Cards */}
+                                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                    <ComparisonStatsCard
+                                        label="Total Laporan"
+                                        period1Value={comparisonData.period1?.total_reports || 0}
+                                        period2Value={comparisonData.period2?.total_reports || 0}
+                                        changePercentage={comparisonData.comparison?.reports_change?.value || 0}
+                                        changeDirection={comparisonData.comparison?.reports_change?.direction || 'neutral'}
+                                        period1Label="Periode 1"
+                                        period2Label="Periode 2"
+                                    />
+                                    <ComparisonStatsCard
+                                        label="Total Watchlist"
+                                        period1Value={comparisonData.period1?.total_watchlist || 0}
+                                        period2Value={comparisonData.period2?.total_watchlist || 0}
+                                        changePercentage={comparisonData.comparison?.watchlist_change?.value || 0}
+                                        changeDirection={comparisonData.comparison?.watchlist_change?.direction || 'neutral'}
+                                        period1Label="Periode 1"
+                                        period2Label="Periode 2"
+                                    />
+                                    <ComparisonStatsCard
+                                        label="Laporan Safe"
+                                        period1Value={(comparisonData.period1?.total_reports || 0) - (comparisonData.period1?.total_watchlist || 0)}
+                                        period2Value={(comparisonData.period2?.total_reports || 0) - (comparisonData.period2?.total_watchlist || 0)}
+                                        changePercentage={(() => {
+                                            const safe1 = (comparisonData.period1?.total_reports || 0) - (comparisonData.period1?.total_watchlist || 0);
+                                            const safe2 = (comparisonData.period2?.total_reports || 0) - (comparisonData.period2?.total_watchlist || 0);
+                                            if (safe2 === 0) return safe1 > 0 ? 100 : 0;
+                                            return ((safe1 - safe2) / safe2) * 100;
+                                        })()}
+                                        changeDirection={(() => {
+                                            const safe1 = (comparisonData.period1?.total_reports || 0) - (comparisonData.period1?.total_watchlist || 0);
+                                            const safe2 = (comparisonData.period2?.total_reports || 0) - (comparisonData.period2?.total_watchlist || 0);
+                                            const change = safe1 - safe2;
+                                            return change > 0 ? 'up' : change < 0 ? 'down' : 'neutral';
+                                        })()}
+                                        period1Label="Periode 1"
+                                        period2Label="Periode 2"
+                                    />
+                                </div>
+
+                                {/* Comparison Charts */}
+                                <div className="grid gap-4 lg:grid-cols-2">
+                                    <ComparisonChart
+                                        title="Laporan per Divisi"
+                                        description="Perbandingan jumlah laporan per divisi"
+                                        period1Data={comparisonData.period1?.reports_by_division || {}}
+                                        period2Data={comparisonData.period2?.reports_by_division || {}}
+                                        period1Label="Periode 1"
+                                        period2Label="Periode 2"
+                                    />
+                                    <ComparisonChart
+                                        title="Watchlist per Divisi"
+                                        description="Perbandingan jumlah watchlist per divisi"
+                                        period1Data={comparisonData.period1?.watchlist_by_division || {}}
+                                        period2Data={comparisonData.period2?.watchlist_by_division || {}}
+                                        period1Label="Periode 1"
+                                        period2Label="Periode 2"
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        {comparisonData?.error && (
+                            <Card>
+                                <CardContent className="py-6">
+                                    <div className="text-center text-sm text-muted-foreground">{comparisonData.message || 'Gagal memuat data perbandingan'}</div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                )}
+
                 <div className="mt-6 grid gap-4 lg:grid-cols-12">
                     <Card className="lg:col-span-8">
                         <CardHeader>
@@ -271,7 +375,7 @@ export default function Dashboard() {
                             <CardDescription>Perbandingan Klasifikasi Laporan per divisi</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <GroupedBar items={comparisonData} />
+                            <GroupedBar items={chartComparisonData} />
                         </CardContent>
                     </Card>
 
