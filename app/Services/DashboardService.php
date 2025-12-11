@@ -370,16 +370,35 @@ class DashboardService extends BaseService
         $endDate = $activePeriod ? $activePeriod->end_date : null;
         $daysLeft = $endDate ? (Carbon::parse($endDate)->isFuture() ? Carbon::now()->diffInDays(Carbon::parse($endDate)) : 0) : 0;
 
+        // Get current period stats
+        $reportsTotal = $activePeriod ? Report::where('period_id', $activePeriod->id)->count() : 0;
+        $watchlistTotal = $activePeriod ? Watchlist::whereHas('report', function($q) use ($activePeriod) {
+            $q->where('period_id', $activePeriod->id);
+        })->count() : 0;
+        $safeReports = $reportsTotal - $watchlistTotal;
+        
+        // Get previous period for comparison
+        $previousPeriod = $activePeriod ? Period::where('start_date', '<', $activePeriod->start_date)
+            ->orderByDesc('start_date')
+            ->first() : null;
+        
+        // Get previous period stats
+        $prevReportsTotal = $previousPeriod ? Report::where('period_id', $previousPeriod->id)->count() : 0;
+        $prevWatchlistTotal = $previousPeriod ? Watchlist::whereHas('report', function($q) use ($previousPeriod) {
+            $q->where('period_id', $previousPeriod->id);
+        })->count() : 0;
+        $prevSafeReports = $prevReportsTotal - $prevWatchlistTotal;
+
         return [
-            'reports_total' => $activePeriod ? Report::where('period_id', $activePeriod->id)->count() : 0,
-            'watchlist_total' => $activePeriod ? Watchlist::whereHas('report', function($q) use ($activePeriod) {
-                $q->where('period_id', $activePeriod->id);
-            })->count() : 0,
-            'safe_reports' => $activePeriod ? Report::where('period_id', $activePeriod->id)->count() - Watchlist::whereHas('report', function($q) use ($activePeriod) {
-                $q->where('period_id', $activePeriod->id);
-            })->count() : 0,
+            'reports_total' => $reportsTotal,
+            'watchlist_total' => $watchlistTotal,
+            'safe_reports' => $safeReports,
             'period_end_date' => $endDate,
             'period_days_left' => $daysLeft,
+            // Previous period data for comparison
+            'prev_reports_total' => $prevReportsTotal,
+            'prev_watchlist_total' => $prevWatchlistTotal,
+            'prev_safe_reports' => $prevSafeReports,
         ];
     }
 

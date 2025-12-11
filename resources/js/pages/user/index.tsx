@@ -160,7 +160,7 @@ export default function UserIndex() {
                                                 <TableRow key={user.id}>
                                                     <TableCell className="font-medium">{user.name || 'Duar'}</TableCell>
                                                     <TableCell>{user.email}</TableCell>
-                                                    <TableCell>{user.role.name}</TableCell>
+                                                    <TableCell>{user.role?.name ?? '-'}</TableCell>
                                                     <TableCell>{user.division?.name ?? '-'}</TableCell>
                                                     <TableCell className="flex justify-end space-x-2 text-right">
                                                         <Link

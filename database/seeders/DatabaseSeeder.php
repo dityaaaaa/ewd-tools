@@ -24,12 +24,12 @@ class DatabaseSeeder extends Seeder
             TemplateSeeder::class,
             PeriodSeeder::class,
             BorrowerSeeder::class,
-            BorrowerDetailSeeder::class,
-            BorrowerFacilitySeeder::class,
-            ReportSeeder::class,
-            AnswerSeeder::class,
-            MonitoringNoteSeeder::class,
-            ApprovalSeeder::class,
+            // BorrowerDetailSeeder::class,
+            // BorrowerFacilitySeeder::class,
+            // ReportSeeder::class,
+            // AnswerSeeder::class,
+            // MonitoringNoteSeeder::class,
+            // ApprovalSeeder::class,
         ]);
     }
 }
