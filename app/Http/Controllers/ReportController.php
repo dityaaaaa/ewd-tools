@@ -7,6 +7,7 @@ use App\Services\FormService;
 use App\Services\MonitoringNoteService;
 use App\Services\DivisionService;
 use App\Services\PeriodService;
+use App\Services\ApprovalService;
 use App\Enums\ReportStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,17 +24,20 @@ class ReportController extends Controller
     protected DivisionService $divisionService;
     protected PeriodService $periodService;
     protected FormService $formService;
+    protected ApprovalService $approvalService;
 
     public function __construct(
         ReportService $reportService,
         DivisionService $divisionService,
         PeriodService $periodService,
         FormService $formService,
+        ApprovalService $approvalService,
     ) {
         $this->reportService = $reportService;
         $this->divisionService = $divisionService;
         $this->periodService = $periodService;
         $this->formService = $formService;
+        $this->approvalService = $approvalService;
     }
 
     public function index(Request $request)
@@ -82,6 +86,11 @@ class ReportController extends Controller
 
         // Authorization: reuse submit logic for RM resubmission
         $this->authorize('submit', $report);
+        
+        // Additional check: only allow editing rejected reports
+        if ($report->status !== ReportStatus::REJECTED) {
+            abort(403, 'Hanya laporan yang ditolak yang dapat diedit.');
+        }
 
         // Prefill borrower and facility data
         $detail = $report->borrower->detail;
@@ -145,12 +154,25 @@ class ReportController extends Controller
         $this->authorize('submit', $report);
 
         try {
+            // Check if this is a resubmit (report was rejected)
+            $isResubmit = $report->status === ReportStatus::REJECTED;
+            
             $this->formService->resubmit($report, $request->validated(), $actor);
+
+            // If resubmit, reset approvals and update report status
+            if ($isResubmit) {
+                $this->approvalService->createPendingApprovals($report);
+                $report->update([
+                    'status' => ReportStatus::SUBMITTED,
+                    'rejection_reason' => null,
+                    'submitted_at' => now(),
+                ]);
+            }
 
             session()->forget(['borrower_data', 'facility_data']);
 
             return redirect()->route('summary.show', ['report' => $report->id])
-                ->with('success', 'Laporan berhasil diperbarui dan dikirim ulang.');
+                ->with('success', $isResubmit ? 'Laporan berhasil disubmit ulang.' : 'Laporan berhasil diperbarui dan dikirim ulang.');
         } catch (\Throwable $e) {
             report($e);
             return back()->with('error', 'Terjadi kesalahan saat memperbarui laporan: ' . $e->getMessage());

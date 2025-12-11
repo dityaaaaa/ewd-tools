@@ -79,17 +79,27 @@ class ApprovalController extends Controller
                 $approval->report,
                 $approval->level
             );
+            
+            // Process the rejection for this specific approval
             $this->approvalService->processApproval(
                 $approval,
                 $request->user(),
                 ApprovalStatus::REJECTED,
                 $request->validated()
             );
+            
+            // Reject all other approvals and update report status
+            $reason = $request->validated()['notes'] ?? 'Ditolak tanpa alasan spesifik.';
+            $this->approvalService->rejectAllApprovals(
+                $approval->report,
+                $approval,
+                $reason
+            );
         } catch (Throwable $e) {
             Log::error('Gagal menolak laporan: ' . $e->getMessage());
             return Redirect::back()->withErrors(['message' => $e->getMessage()]);
         }
 
-        return Redirect::back()->with('success', 'Laporan berhasil ditolak.');
+        return Redirect::back()->with('success', 'Laporan berhasil ditolak. Semua approval telah direset.');
     }
 }

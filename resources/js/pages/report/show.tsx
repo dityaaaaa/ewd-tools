@@ -411,6 +411,54 @@ export default function ReportShow({ report, template, watchlist }: PageProps) {
                         </CardHeader>
                     </Card>
 
+                    {/* Rejection Info - Show when report is rejected */}
+                    {report.status === 3 && report.rejection_reason && (
+                        <Card className="mb-6 border-red-200 bg-red-50">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-red-800">
+                                    <AlertTriangleIcon className="h-5 w-5" />
+                                    Laporan Ditolak
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    <div>
+                                        <Label className="text-sm font-medium text-red-700">Alasan Penolakan:</Label>
+                                        <p className="mt-2 rounded-md bg-white p-3 text-sm text-gray-700">
+                                            {report.rejection_reason}
+                                        </p>
+                                    </div>
+                                    {approvals && approvals.find((a) => normalizeApprovalStatus(a.status) === 'rejected') && (
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div>
+                                                <Label className="text-sm font-medium text-red-700">Ditolak oleh:</Label>
+                                                <p className="mt-1 text-sm text-gray-700">
+                                                    {approvals.find((a) => normalizeApprovalStatus(a.status) === 'rejected')?.reviewer?.name || '-'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <Label className="text-sm font-medium text-red-700">Tanggal Penolakan:</Label>
+                                                <p className="mt-1 text-sm text-gray-700">
+                                                    {formatDate(approvals.find((a) => normalizeApprovalStatus(a.status) === 'rejected')?.updated_at)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {page.auth.user.id === report.created_by && (
+                                        <div className="pt-2">
+                                            <Link href={`/reports/${report.id}/edit`}>
+                                                <Button variant="default" size="sm" className="bg-blue-600 hover:bg-blue-700">
+                                                    <FileTextIcon className="h-4 w-4" />
+                                                    Edit dan Submit Ulang Laporan
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {/* Rejection Reason Input - Only show when there are pending approvals */}
                     {approvals && approvals.some((approval) => canUserApprove(approval)) && (
                         <Card className="mb-6">

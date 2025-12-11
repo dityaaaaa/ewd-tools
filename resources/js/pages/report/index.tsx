@@ -278,7 +278,10 @@ export default function ReportIndex() {
                                         </TableHeader>
                                         <TableBody>
                                             {reportList.map((report) => (
-                                                <TableRow key={report.id}>
+                                                <TableRow 
+                                                    key={report.id}
+                                                    className={report.status === 3 || report.status === 'rejected' ? 'bg-red-50 hover:bg-red-100' : ''}
+                                                >
                                                     <TableCell>{report.borrower.name}</TableCell>
                                                     <TableCell>
                                                         {report.borrower.division?.code}

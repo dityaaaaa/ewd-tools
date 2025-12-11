@@ -146,6 +146,33 @@ class ApprovalService extends BaseService
         });
     }
 
+    /**
+     * Reset all approvals to rejected when one approver rejects
+     * 
+     * @param Report $report
+     * @param Approval $rejectingApproval
+     * @param string $reason
+     * @return void
+     */
+    public function rejectAllApprovals(Report $report, Approval $rejectingApproval, string $reason): void
+    {
+        $this->tx(function () use ($report, $rejectingApproval, $reason) {
+            // Update all approvals to rejected except the one that triggered rejection
+            $report->approvals()
+                ->where('id', '!=', $rejectingApproval->id)
+                ->update([
+                    'status' => ApprovalStatus::REJECTED,
+                    'notes' => 'Ditolak karena approval level ' . $rejectingApproval->level->label() . ' menolak laporan ini.',
+                ]);
+            
+            // Update report
+            $report->update([
+                'status' => ReportStatus::REJECTED,
+                'rejection_reason' => $reason,
+            ]);
+        });
+    }
+
     protected function validateActorPermission(User $actor, ApprovalLevel $level): void
     {
         $expectedRole = match ($level) {
