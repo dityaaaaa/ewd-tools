@@ -6,6 +6,7 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use App\Exports\Sheets\SummarySheet;
 use App\Exports\Sheets\WatchlistSheet;
 use App\Exports\Sheets\AspectQASheet;
+use App\Exports\Sheets\ApprovalsSheet;
 
 class ReportDetailExport implements WithMultipleSheets
 {
@@ -13,13 +14,15 @@ class ReportDetailExport implements WithMultipleSheets
     protected array $watchlist;
     protected array $actionItems;
     protected array $qaRows;
+    protected array $approvals;
 
-    public function __construct(array $summary, array $watchlist, array $actionItems, array $qaRows)
+    public function __construct(array $summary, array $watchlist, array $actionItems, array $qaRows, array $approvals)
     {
         $this->summary = $summary;
         $this->watchlist = $watchlist;
         $this->actionItems = $actionItems;
         $this->qaRows = $qaRows;
+        $this->approvals = $approvals;
     }
 
     public function sheets(): array
@@ -28,6 +31,7 @@ class ReportDetailExport implements WithMultipleSheets
             new SummarySheet($this->summary),
             new WatchlistSheet($this->watchlist, $this->actionItems),
             new AspectQASheet($this->qaRows),
+            new ApprovalsSheet($this->approvals),
         ];
     }
 }

@@ -132,43 +132,21 @@
         <table style="margin-top:12px;">
             <thead>
                 <tr>
-                    <th>Relationship Manager</th>
-                    <th>Kepala Departemen</th>
-                    <th>Kepala Divisi</th>
+                    <th style="width:25%">Level</th>
+                    <th style="width:25%">Nama</th>
+                    <th style="width:20%">Status</th>
+                    <th style="width:30%">Tanggal Approval</th>
                 </tr>
             </thead>
             <tbody>
+                @foreach($report->approvals as $approval)
                 <tr>
-                    <td style="height:40px;">&nbsp;</td>
-                    <td>&nbsp;</td>
-                    <td>&nbsp;</td>
+                    <td>{{ $approval->level?->label() ?? '-' }}</td>
+                    <td>{{ $approval->reviewer?->name ?? '-' }}</td>
+                    <td>{{ $approval->status?->label() ?? '-' }}</td>
+                    <td>{{ optional($approval->created_at)->format('d F Y H:i') ?? '-' }}</td>
                 </tr>
-                <tr>
-                    <td>{{ $approverName(1) }}</td>
-                    <td>{{ $approverName(3) }}</td>
-                    <td>{{ $approverName(4) }}</td>
-                </tr>
-            </tbody>
-        </table>
-        <table style="margin-top:8px;">
-            <thead>
-                <tr>
-                    <th>Analis</th>
-                    <th>Kepala Departemen</th>
-                    <th>Kepala Divisi</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td style="height:40px;">&nbsp;</td>
-                    <td>&nbsp;</td>
-                    <td>&nbsp;</td>
-                </tr>
-                <tr>
-                    <td>{{ $approverName(2) }}</td>
-                    <td>{{ $approverName(3) }}</td>
-                    <td>{{ $approverName(4) }}</td>
-                </tr>
+                @endforeach
             </tbody>
         </table>
     </div>

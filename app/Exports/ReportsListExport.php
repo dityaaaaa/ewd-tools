@@ -22,7 +22,18 @@ class ReportsListExport implements FromQuery, WithHeadings, WithMapping, ShouldA
     {
         /** @var Builder $q */
         $q = Report::query()
-            ->with(['borrower.division', 'period', 'template', 'summary', 'creator'])
+            ->with([
+                'borrower.division',
+                'period',
+                'template',
+                'summary',
+                'creator',
+                'aspects.aspectVersion.aspect',
+                'approvals' => function ($query) {
+                    $query->orderBy('level');
+                },
+                'approvals.reviewer'
+            ])
             ->orderByDesc('submitted_at');
 
         if (!empty($this->filters['division_id'])) {
@@ -68,12 +79,27 @@ class ReportsListExport implements FromQuery, WithHeadings, WithMapping, ShouldA
             'Final Classification',
             'Indicative Collectibility',
             'Submitted At',
+            'Aspect A Status',
+            'Aspect B Status',
+            'Aspect C Status',
+            'Aspect D Status',
+            'Aspect E Status',
+            'RM Approver',
+            'Analyst Approver',
+            'Dept Head Approver',
+            'Division Head Approver',
         ];
     }
 
     /** @param Report $report */
     public function map($report): array
     {
+        // Get aspect statuses
+        $aspectStatuses = $this->getAspectStatuses($report);
+        
+        // Get approver names
+        $approverNames = $this->getApproverNames($report);
+        
         return [
             $report->borrower?->division?->name ?? '',
             $report->borrower?->name ?? '',
@@ -83,6 +109,54 @@ class ReportsListExport implements FromQuery, WithHeadings, WithMapping, ShouldA
             ($report->summary?->final_classification === 0 ? 'WATCHLIST' : ($report->summary?->final_classification === 1 ? 'SAFE' : '')),
             $report->summary?->indicative_collectibility ?? '',
             optional($report->submitted_at)?->format('Y-m-d H:i') ?? '',
+            $aspectStatuses['A'] ?? '-',
+            $aspectStatuses['B'] ?? '-',
+            $aspectStatuses['C'] ?? '-',
+            $aspectStatuses['D'] ?? '-',
+            $aspectStatuses['E'] ?? '-',
+            $approverNames[1] ?? '-',
+            $approverNames[2] ?? '-',
+            $approverNames[3] ?? '-',
+            $approverNames[4] ?? '-',
         ];
+    }
+    
+    /**
+     * Get aspect statuses for a report
+     * 
+     * @param Report $report
+     * @return array
+     */
+    protected function getAspectStatuses($report): array
+    {
+        $statuses = [];
+        
+        foreach ($report->aspects as $aspect) {
+            $code = $aspect->aspectVersion?->aspect?->code ?? '';
+            if ($code) {
+                $classification = $aspect->classification == 0 ? 'Warning' : 'Safe';
+                $statuses[$code] = $classification;
+            }
+        }
+        
+        return $statuses;
+    }
+    
+    /**
+     * Get approver names by level
+     * 
+     * @param Report $report
+     * @return array
+     */
+    protected function getApproverNames($report): array
+    {
+        $approvers = [];
+        
+        foreach ([1, 2, 3, 4] as $level) {
+            $approval = $report->approvals->firstWhere('level', $level);
+            $approvers[$level] = $approval?->reviewer?->name ?? '-';
+        }
+        
+        return $approvers;
     }
 }

@@ -158,7 +158,7 @@ export default function UserIndex() {
                                         <TableBody>
                                             {userList.map((user) => (
                                                 <TableRow key={user.id}>
-                                                    <TableCell className="font-medium">{user.name}</TableCell>
+                                                    <TableCell className="font-medium">{user.name || 'Duar'}</TableCell>
                                                     <TableCell>{user.email}</TableCell>
                                                     <TableCell>{user.role.name}</TableCell>
                                                     <TableCell>{user.division?.name ?? '-'}</TableCell>
